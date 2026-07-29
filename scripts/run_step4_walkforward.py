@@ -12,7 +12,7 @@ import argparse
 import pandas as pd
 
 from engine.backtest import BacktestConfig, run_backtest
-from engine.data_loader import load_binance_klines_csv
+from engine.data_loader import load_ohlcv
 from engine.metrics import compute_metrics
 from engine.signals import ma_crossover_signal
 
@@ -24,11 +24,12 @@ def main():
     parser.add_argument("--sl-value", type=float, required=True)
     parser.add_argument("--atr-period", type=int, default=14)
     parser.add_argument("--rr", type=float, default=2.0)
-    parser.add_argument("--fee", type=float, default=0.0005)
+    parser.add_argument("--fee", type=float, required=True, help="fee per side, e.g. 0.0005 for crypto, 0.00015 for forex")
     parser.add_argument("--split", type=float, default=0.7)
+    parser.add_argument("--out-prefix", default="step4")
     args = parser.parse_args()
 
-    df = load_binance_klines_csv(args.data)
+    df = load_ohlcv(args.data)
     config = BacktestConfig(
         sl_mode=args.sl_mode, sl_value=args.sl_value, atr_period=args.atr_period,
         rr_ratio=args.rr, fee_pct_per_side=args.fee,
@@ -54,8 +55,8 @@ def main():
     result = pd.DataFrame(rows)
     print(f"Split date: {split_time}")
     print(result.to_markdown(index=False))
-    result.to_csv("results/step4_walkforward_summary.csv", index=False)
-    trades.to_csv("results/step4_trades_full.csv", index=False)
+    result.to_csv(f"results/{args.out_prefix}_step4_walkforward_summary.csv", index=False)
+    trades.to_csv(f"results/{args.out_prefix}_step4_trades_full.csv", index=False)
 
 
 if __name__ == "__main__":

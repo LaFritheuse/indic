@@ -60,3 +60,20 @@ def load_mt5_csv(path: str, sep: str = "\t") -> pd.DataFrame:
     }, index=dt)
     out.index.name = "open_time"
     return out.sort_index()
+
+
+def load_ohlcv_parquet(path: str) -> pd.DataFrame:
+    """Load an OHLCV parquet file with a DatetimeIndex (as produced by
+    scripts/process_eurusd_histdata.py or any resample of it)."""
+    df = pd.read_parquet(path)
+    return df[["open", "high", "low", "close", "volume"]]
+
+
+def load_ohlcv(path: str) -> pd.DataFrame:
+    """Dispatch to the right loader based on file extension: .parquet ->
+    load_ohlcv_parquet, .csv -> load_binance_klines_csv (Binance format)."""
+    if path.endswith(".parquet"):
+        return load_ohlcv_parquet(path)
+    if path.endswith(".csv"):
+        return load_binance_klines_csv(path)
+    raise ValueError(f"Unrecognized file extension for {path}")
