@@ -48,3 +48,48 @@ def ma_crossover_signal(df: pd.DataFrame, fast: int = 9, slow: int = 21) -> pd.D
     out["short_exit"] = out["long_entry"]
 
     return out
+
+
+def donchian_breakout_signal(df: pd.DataFrame, lookback: int = 20) -> pd.DataFrame:
+    """Range breakout (Donchian-style).
+
+    Range = rolling high/low over the PRIOR `lookback` bars (shifted by 1,
+    so the current bar is never part of its own range — no lookahead).
+    Long entry when the close breaks above the prior range high.
+    Short entry when the close breaks below the prior range low.
+    Reverse breakout closes an opposite open position (same convention as
+    ma_crossover_signal).
+    """
+    out = pd.DataFrame(index=df.index)
+    range_high = df["high"].rolling(window=lookback, min_periods=lookback).max().shift(1)
+    range_low = df["low"].rolling(window=lookback, min_periods=lookback).min().shift(1)
+
+    out["long_entry"] = (df["close"] > range_high).fillna(False)
+    out["short_entry"] = (df["close"] < range_low).fillna(False)
+    out["long_exit"] = out["short_entry"]
+    out["short_exit"] = out["long_entry"]
+
+    return out
+
+
+def with_entry_hour_filter(signal_fn, start_hour: int, end_hour: int, utc_offset_hours: float = 0.0):
+    """Wrap a signal function so entries only fire if the EXECUTION bar
+    (the next bar after the signal, where the engine actually opens the
+    trade) falls within [start_hour, end_hour) UTC. Exits are untouched —
+    only entries are gated.
+
+    utc_offset_hours: added to the DataFrame's raw timestamp index to get
+    UTC (e.g. +5 for HistData's fixed-EST timestamps).
+    """
+    def wrapped(df: pd.DataFrame) -> pd.DataFrame:
+        out = signal_fn(df).copy()
+        utc_hour = (df.index + pd.Timedelta(hours=utc_offset_hours)).hour
+        # Entry at signal-bar i executes at bar i+1 -> gate on hour[i+1].
+        execution_hour = pd.Series(utc_hour, index=df.index).shift(-1)
+        in_window = (execution_hour >= start_hour) & (execution_hour < end_hour)
+        in_window = in_window.fillna(False)
+        out["long_entry"] = out["long_entry"] & in_window
+        out["short_entry"] = out["short_entry"] & in_window
+        return out
+
+    return wrapped

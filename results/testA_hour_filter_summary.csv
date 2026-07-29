@@ -1,0 +1,3 @@
+Config,n_trades,winrate_pct,esperance_R,rendement_net_pct,max_DD_pct
+Sans filtre (référence),1023,26.7,-0.02,-18.58,-19.3
+Filtre horaire 12h-16h UTC,272,30.1,-0.028,-7.35,-7.43

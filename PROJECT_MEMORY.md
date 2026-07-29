@@ -1,6 +1,6 @@
 # PROJECT_MEMORY — Backtest MM9/21 (validation avant intégration à l'app trading journal)
 
-Dernière mise à jour : 2026-07-29 (session 3)
+Dernière mise à jour : 2026-07-29 (session 4)
 
 ## Changement de direction (session 3)
 
@@ -429,3 +429,64 @@ sur le signe/la direction des rendements (cf. point 1, quasi nul).
 5. Ne pas construire de nouvelle stratégie ni de signal sans validation
    explicite de l'utilisateur / de l'autre Claude sur les résultats
    d'exploration ci-dessus.
+
+## Test A et Test B — filtre horaire et breakout de range (session 4)
+
+Suite à l'exploration statistique (session 3) : volatilité nettement plus
+forte 12h-16h UTC (chevauchement Londres/NY) et clustering de volatilité
+confirmé, mais ni trend-following ni mean-reversion n'ont de fondement
+clair sur le prix lui-même. Deux tests indépendants, non combinés entre
+eux, comme demandé.
+
+### Test A — MM9/21 SL fixe 2% + filtre horaire (seul changement ajouté)
+
+Référence : run EURUSD 15m SL fixe 2% de la session 2 (1023 trades,
+espérance -0,02R). Seul ajout : un filtre n'autorisant les entrées que si
+l'exécution (bougie d'ouverture suivant le signal) tombe entre 12h et 16h
+UTC. Aucun autre changement (même SL, même RR 2:1, mêmes frais 0,015%/côté,
+même moteur). Implémenté comme un wrapper de signal (`with_entry_hour_filter`
+dans `engine/signals.py`) qui ne touche ni `ma_crossover_signal` ni le
+moteur — seules les entrées sont filtrées, pas les sorties.
+
+| Config | n_trades | winrate_pct | esperance_R | rendement_net_pct | max_DD_pct |
+|---|---|---|---|---|---|
+| Sans filtre (référence) | 1023 | 26.7 | -0.0200 | -18.58 | -19.30 |
+| Filtre horaire 12h-16h UTC | 272 | 30.1 | -0.0280 | -7.35 | -7.43 |
+
+Le filtre horaire réduit le nombre de trades (1023 → 272, -73%) et le
+rendement net absolu est moins dégradé (-7,35% vs -18,58%), mais
+l'espérance par trade en R reste négative et se dégrade même légèrement
+(-0,028R vs -0,020R). Le "moins mauvais rendement net" ici est un effet du
+nombre de trades bien plus faible, pas d'une meilleure espérance — cohérent
+avec l'exploration statistique : la volatilité plus élevée 12h-16h UTC ne
+se traduit pas en edge directionnel pour ce signal.
+
+### Test B — Breakout de range (Donchian) + filtre horaire 12h-16h UTC
+
+Nouveau signal, orienté volatilité/range plutôt que direction pure :
+range = plus haut/plus bas des N bougies précédentes (décalé, sans
+lookahead), entrée en cassure (close > range haut → long, close < range
+bas → short). Entrées limitées à la fenêtre 12h-16h UTC. SL en ATR(14)
+x1.5 avec floor 8 pips (validé session 2). RR 2:1, frais 0,015%/côté,
+sortie technique sur cassure inverse (même convention que MM9/21).
+
+| Config | n_trades | winrate_pct | esperance_R | rendement_net_pct | max_DD_pct |
+|---|---|---|---|---|---|
+| Breakout N=20, 12h-16h UTC | 464 | 32.3 | -0.3250 | -78.85 | -79.28 |
+| Breakout N=50, 12h-16h UTC | 351 | 31.9 | -0.3301 | -69.72 | -70.63 |
+| Breakout N=100, 12h-16h UTC | 225 | 31.1 | -0.3564 | -56.18 | -56.47 |
+
+Espérance négative et proche pour les trois lookbacks (-0,325R à -0,356R),
+sans amélioration nette en augmentant N. Rendement net très dégradé dans
+les trois cas (-56% à -79%) par le même mécanisme de compounding déjà
+identifié session 2 (espérance négative × plusieurs centaines de trades à
+1% de risque/trade composé). Aucune configuration testée ne montre d'edge
+positif.
+
+### Bilan (sessions 3-4, à date)
+
+Aucun des signaux testés jusqu'ici (MM9/21 nu, MM9/21 + filtre horaire,
+breakout de range + filtre horaire, à 3 lookbacks) n'a d'espérance positive
+sur EURUSD 15m 2025-01→2026-06. La structure horaire de volatilité est
+réelle (confirmée statistiquement) mais ne s'est pas encore traduite en
+edge exploitable dans les deux logiques testées.

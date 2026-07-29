@@ -1,0 +1,4 @@
+Config,n_trades,winrate_pct,esperance_R,rendement_net_pct,max_DD_pct
+"Breakout N=20, 12h-16h UTC",464,32.3,-0.325,-78.85,-79.28
+"Breakout N=50, 12h-16h UTC",351,31.9,-0.3301,-69.72,-70.63
+"Breakout N=100, 12h-16h UTC",225,31.1,-0.3564,-56.18,-56.47
