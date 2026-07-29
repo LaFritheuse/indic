@@ -1,6 +1,25 @@
 # PROJECT_MEMORY — Backtest MM9/21 (validation avant intégration à l'app trading journal)
 
-Dernière mise à jour : 2026-07-29 (session 2)
+Dernière mise à jour : 2026-07-29 (session 3)
+
+## Changement de direction (session 3)
+
+**Le croisement MM9/21 est officiellement abandonné comme stratégie
+autonome.** Motifs (résumé des sessions 1-2, détails dans les sections
+ci-dessous) : espérance négative sur BTC 15m et EURUSD 15m dans toutes les
+configurations testées (SL fixe, ATR x1.5/x2.0, avec ou sans floor de
+distance min) ; aucun filtre (MM200, ADX, seuls ou combinés — testés en
+amont sur TradingView) n'a jamais créé d'edge, seulement réduit le nombre
+de trades. Leçon méthodologique : on a multiplié les tests de paramètres
+sur les mêmes données (multiple testing) — risque de faux positif si on
+avait continué à optimiser sans nouvelle donnée ou nouvelle hypothèse.
+
+**Nouvelle approche (session 3)** : avant de construire une nouvelle
+stratégie prédéfinie (mean-reversion, breakout...), phase d'exploration
+statistique neutre sur les données EURUSD déjà en local, sans aucune
+logique de trading, pour observer ce que le marché montre réellement
+avant de choisir une logique dessus. Résultats en bas de ce document,
+section "Exploration statistique neutre — EURUSD 15m (session 3)".
 
 ## Objectif du projet
 
@@ -23,10 +42,12 @@ pour l'exécution technique (ce dépôt).
 | 4bis. Walk-forward 70/30 — EURUSD | **Fait** (session 2) — résultats ci-dessous |
 | 5. Diagnostic anomalie ATR x1.5/x2.0 (-99% net) | **Fait** (session 2) — pas un bug, cf. "Diagnostic fee_drag_R" |
 | 6. Test floor de distance min sur SL ATR (5/8 pips) | **Fait** (session 2) — résultats ci-dessous |
+| 7. Décision : abandon du MM9/21 comme stratégie autonome | **Actée** (session 3) |
+| 8. Exploration statistique neutre (autocorr, ADF, Hurst, saisonnalité horaire, clustering vol.) — EURUSD 15m | **Fait** (session 3) — résultats en bas de document |
 
 **BTC : toujours aucun résultat chiffré réel** (bloqué par le réseau).
-**EURUSD : résultats réels produits cette session**, voir "Résultats — EURUSD
-15m (session 2)" ci-dessous.
+**EURUSD : résultats réels produits sessions 2-3**, voir "Résultats — EURUSD
+15m" et "Exploration statistique neutre" ci-dessous.
 
 ## Blocker réseau — Étape 1 (données BTC)
 
@@ -269,6 +290,130 @@ SL en cas de double-touche intrabar, impact des frais sur le PnL net. Ces
 tests valident la **mécanique** du moteur, pas un edge — aucun chiffre de
 ces tests ne doit être interprété comme un résultat de stratégie.
 
+## Exploration statistique neutre — EURUSD 15m (session 3)
+
+Aucune logique de stratégie/signal appliquée. Script :
+`scripts/explore_market_structure.py`. Période : 2025-01-01 17:00 →
+2026-06-26 16:45 (36 951 bougies 15m, 36 950 rendements).
+
+**Hypothèse de fuseau horaire** : les timestamps HistData sont en EST fixe
+(UTC-5, sans ajustement DST) — inféré du pattern hebdomadaire des données
+(réouverture chaque dimanche à 17:00 heure brute, cohérent avec l'ouverture
+forex standard de 22:00 UTC sous un décalage fixe de -5h), pas confirmé par
+une doc officielle jointe au fichier. Le point 4 ci-dessous convertit donc
+`heure_utc = heure_brute + 5h`.
+
+**Note méthodologique (bug rencontré et corrigé pendant cette session)** :
+le premier calcul de l'exposant de Hurst appliquait le R/S directement sur
+les niveaux de prix (série non stationnaire), ce qui gonfle artificiellement
+H vers 1 peu importe la vraie dynamique (vérifié sur une marche aléatoire
+synthétique : R/S sur les niveaux → H≈0,996-1,0 ; R/S sur les incréments
+sous-jacents → H≈0,51-0,57, conforme à la théorie H=0,5). Corrigé en
+appliquant le R/S aux **rendements**, pas au prix brut. Les résultats
+ci-dessous utilisent la version corrigée.
+
+### 1. Autocorrélation des rendements (lags 1/5/20/50)
+
+| lag | autocorr_rendements |
+|---|---|
+| 1 | -0.02071 |
+| 5 | -0.00711 |
+| 20 | -0.00580 |
+| 50 | -0.00084 |
+
+*Interprétation neutre* : autocorrélation légèrement négative à tous les
+lags, la plus marquée au lag 1 (-0,021) et décroissant vers zéro ensuite.
+Signe faible de mean-reversion à très court terme (bougie à bougie), pas de
+signe de momentum. L'ampleur est faible (proche de 0) — compatible avec un
+marché proche de l'efficience à cette granularité, pas une dépendance forte
+exploitable telle quelle.
+
+### 2. Test ADF (Augmented Dickey-Fuller) sur le prix, fenêtres glissantes
+
+| fenêtre | n_fenêtres | ADF stat moyen | % fenêtres stationnaires (p<0.05) |
+|---|---|---|---|
+| 500 | 365 | -1.553 | 5.5% |
+| 2000 | 88 | -1.557 | 4.5% |
+
+*Interprétation neutre* : dans l'immense majorité des fenêtres (~94-95%),
+le test ADF ne rejette pas l'hypothèse de racine unitaire — le prix se
+comporte comme une marche aléatoire (non-stationnaire) sur la quasi-totalité
+de la période, à ces deux échelles de fenêtre. Le retour à la moyenne du
+niveau de prix lui-même n'est pas une propriété dominante de cette série.
+
+### 3. Exposant de Hurst (R/S sur les rendements), fenêtres glissantes
+
+| fenêtre | n_fenêtres | H moyen | H médian | % trending (H>0.55) | % mean-reverting (H<0.45) | % random-walk (0.45-0.55) |
+|---|---|---|---|---|---|---|
+| 500 | 365 | 0.556 | 0.557 | 57.8% | 1.1% | 41.1% |
+| 2000 | 88 | 0.540 | 0.542 | 34.1% | 0.0% | 65.9% |
+
+*Interprétation neutre* : H moyen légèrement au-dessus de 0,5 aux deux
+échelles (0,54-0,56), avec une proportion notable de fenêtres en régime
+"trending" faible (34-58% selon l'échelle) et quasiment aucune fenêtre
+franchement mean-reverting (0-1,1%). Le reste est proche du comportement
+aléatoire pur. Signal de persistance/momentum faible mais présent sur les
+rendements à ces échelles, cohérent avec le point 1 (autocorrélation
+proche de zéro mais légèrement négative au lag 1 uniquement — les deux
+mesures ne se contredisent pas, elles portent sur des horizons différents).
+
+### 4. Distribution des rendements par heure UTC
+
+| heure UTC | n | rendement moyen % | volatilité % | asymétrie |
+|---|---|---|---|---|
+| 0 | 1536 | 0.000965 | 0.0406 | -2.601 |
+| 1 | 1544 | 0.001755 | 0.0434 | -0.097 |
+| 2 | 1544 | -0.001680 | 0.0371 | -0.072 |
+| 3 | 1543 | 0.000120 | 0.0313 | 0.777 |
+| 4 | 1544 | 0.000384 | 0.0273 | 0.378 |
+| 5 | 1543 | 0.000080 | 0.0288 | 0.040 |
+| 6 | 1544 | 0.000346 | 0.0377 | 0.283 |
+| 7 | 1544 | 0.000897 | 0.0506 | -0.051 |
+| 8 | 1536 | 0.001079 | 0.0605 | -0.549 |
+| 9 | 1540 | 0.001003 | 0.0511 | 0.323 |
+| 10 | 1540 | 0.000219 | 0.0428 | 0.059 |
+| 11 | 1540 | -0.001264 | 0.0543 | 3.508 |
+| 12 | 1540 | -0.002212 | 0.0477 | 0.217 |
+| 13 | 1532 | 0.003811 | 0.0783 | 2.412 |
+| 14 | 1536 | 0.002227 | 0.0612 | -0.378 |
+| 15 | 1540 | 0.001850 | 0.0755 | 0.855 |
+| 16 | 1540 | -0.001703 | 0.0602 | 0.090 |
+| 17 | 1536 | -0.001390 | 0.0469 | -0.148 |
+| 18 | 1536 | -0.001842 | 0.0491 | -0.533 |
+| 19 | 1536 | 0.000579 | 0.0473 | -0.584 |
+| 20 | 1536 | -0.000383 | 0.0432 | 0.029 |
+| 21 | 1536 | -0.001135 | 0.0372 | -1.908 |
+| 22 | 1541 | -0.001083 | 0.0517 | -8.032 |
+| 23 | 1543 | 0.003875 | 0.0386 | 0.106 |
+
+*Interprétation neutre* : la volatilité varie nettement selon l'heure UTC
+(de ~0,027% à 4h à ~0,078% à 13h), avec un pic net autour de 13-15h UTC
+(ouverture US / chevauchement Londres-New York) et un creux vers 3-5h UTC
+(session asiatique calme) — comportement horaire statistiquement différent,
+cohérent avec la structure connue des sessions de marché. Les asymétries
+extrêmes sur certaines heures (ex. -8,03 à 22h UTC, +3,51 à 11h UTC) sont
+probablement portées par un petit nombre d'événements extrêmes (ex.
+publications macro) plutôt qu'un comportement systématique sur ~1540
+observations — à ne pas sur-interpréter sans vérifier les valeurs
+individuelles à l'origine de ces asymétries.
+
+### 5. Autocorrélation de la volatilité (volatility clustering)
+
+| lag | autocorr \|rendement\| | autocorr rendement² |
+|---|---|---|
+| 1 | 0.26591 | 0.08291 |
+| 5 | 0.19577 | 0.05182 |
+| 20 | 0.12452 | 0.04480 |
+| 50 | 0.05014 | 0.01540 |
+
+*Interprétation neutre* : autocorrélation positive et décroissante avec le
+lag sur la valeur absolue et le carré des rendements — une bougie volatile
+tend à être suivie de bougies elles-mêmes plus volatiles que la moyenne,
+avec un effet qui s'atténue progressivement jusqu'au lag 50. Clustering de
+volatilité classique (fait stylisé bien documenté sur les séries
+financières), présent et mesurable ici, distinct de toute prédictibilité
+sur le signe/la direction des rendements (cf. point 1, quasi nul).
+
 ## Prochaine session — reprise
 
 1. Résoudre le blocker réseau (voir options ci-dessus) et peupler
@@ -277,8 +422,10 @@ ces tests ne doit être interprété comme un résultat de stratégie.
    sur les données BTC réelles.
 3. Lancer `scripts/run_step4_walkforward.py` avec le réglage gagnant de
    l'étape 3 (BTC).
-4. EURUSD : résultats déjà produits (voir ci-dessus) — en attente de retour
-   de l'autre Claude avant toute suite (filtre, autre signal, autre
-   instrument).
-5. Ne pas optimiser ni ajouter de filtre sans validation explicite de
-   l'utilisateur / de l'autre Claude.
+4. EURUSD : phase d'exploration statistique terminée (ci-dessus) — en
+   attente de retour de l'autre Claude sur quelle structure exploiter
+   (mean-reversion court terme ? filtre horaire ? autre) avant toute
+   implémentation de stratégie.
+5. Ne pas construire de nouvelle stratégie ni de signal sans validation
+   explicite de l'utilisateur / de l'autre Claude sur les résultats
+   d'exploration ci-dessus.
