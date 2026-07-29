@@ -34,6 +34,8 @@ class BacktestConfig:
     allow_long: bool = True
     allow_short: bool = True
     risk_per_trade_pct: float = 0.01   # used only to build the equity curve
+    sl_floor_pips: float = 0.0    # minimum SL distance (atr mode only), in pips; 0 disables the floor
+    pip_size: float = 0.0001      # price value of one pip for this instrument
 
 
 def _compute_sl_tp(entry_price: float, direction: str, config: BacktestConfig, atr_val: Optional[float]):
@@ -41,6 +43,8 @@ def _compute_sl_tp(entry_price: float, direction: str, config: BacktestConfig, a
         sl_dist = entry_price * config.sl_value
     elif config.sl_mode == "atr":
         sl_dist = atr_val * config.sl_value
+        if config.sl_floor_pips > 0:
+            sl_dist = max(sl_dist, config.sl_floor_pips * config.pip_size)
     else:
         raise ValueError(f"Unknown sl_mode: {config.sl_mode}")
 

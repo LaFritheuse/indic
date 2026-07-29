@@ -1,0 +1,4 @@
+Configuration,n_trades,winrate_pct,esperance_R,rendement_net_pct,max_DD_pct,fee_drag_R_moyen
+ATR(14) x1.5 sans floor,1595,29.6,-0.3851,-99.81,-99.82,0.377
+ATR(14) x1.5 floor 5 pips,1595,29.7,-0.3811,-99.8,-99.81,0.3749
+ATR(14) x1.5 floor 8 pips,1552,29.2,-0.3474,-99.6,-99.61,0.3383

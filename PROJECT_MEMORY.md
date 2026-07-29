@@ -21,6 +21,8 @@ pour l'exécution technique (ce dépôt).
 | 3bis. Même comparatif sur EURUSD 15m (2025-01 → 2026-06) | **Fait** (session 2) — résultats ci-dessous |
 | 4. Walk-forward 70/30 sur le meilleur réglage — BTC | **Non exécuté** (dépend de l'étape 3) |
 | 4bis. Walk-forward 70/30 — EURUSD | **Fait** (session 2) — résultats ci-dessous |
+| 5. Diagnostic anomalie ATR x1.5/x2.0 (-99% net) | **Fait** (session 2) — pas un bug, cf. "Diagnostic fee_drag_R" |
+| 6. Test floor de distance min sur SL ATR (5/8 pips) | **Fait** (session 2) — résultats ci-dessous |
 
 **BTC : toujours aucun résultat chiffré réel** (bloqué par le réseau).
 **EURUSD : résultats réels produits cette session**, voir "Résultats — EURUSD
@@ -139,6 +141,68 @@ Espérance négative et stable entre in-sample et out-of-sample (-0,021R vs
 -0,017R) — pas de divergence flagrante entre les deux segments, donc pas de
 signe d'overfitting sur cette période, mais l'edge reste négatif sur les
 deux.
+
+## Diagnostic — pourquoi ATR x1.5/x2.0 donnent -99% (session 2)
+
+L'utilisateur a demandé une vérification poussée après avoir remarqué que
+les runs ATR affichaient un rendement net proche de -100% (compte quasi
+liquidé) alors que le SL fixe 2% restait à -18,58%. Vérifications faites
+sur données réelles (pas de correction appliquée à ce stade) :
+
+1. **Distribution ATR(14) sur EURUSD 15m** : min 2,10 pips, p1 2,90 pips,
+   médiane 6,37 pips, max 37,5 pips. **Aucune valeur nulle ou anormalement
+   proche de zéro.**
+2. **Pas de variable "qty"/taille de position dans le moteur** — tout est
+   normalisé en % et en R. `r_multiple = net_pnl_pct / sl_dist_pct`
+   (`engine/backtest.py`, fonction `close_trade`).
+3. Sur les 1595 trades du run ATR x1.5 : **aucun R individuel au-delà de
+   ±2,08** (min -2,075, max +1,923) — pas de position isolée démesurée.
+   En revanche `fee_drag_R = 2×fee_par_côté / sl_dist_pct` (part du R que
+   les frais fixes représentent à eux seuls) est corrélé à **-0,825** avec
+   l'ATR à l'entrée : plus l'ATR est petit, plus les frais (fixes en %)
+   pèsent lourd une fois rapportés à la distance SL (qui, elle, varie).
+   Moyenne `fee_drag_R` = 0,377, max 1,075 (un trade où les frais seuls
+   valent plus d'1R).
+4. Pire trade individuel : long du 2025-12-25 02:00 (période de Noël,
+   faible volatilité), ATR à l'entrée 2,19 pips, sortie SL 30 min plus
+   tard, `r_multiple = -2,075` (dont 1,075R rien que pour les frais).
+5. **SL/TP bien vérifiés sur `lows[i]`/`highs[i]` intrabar, jamais sur
+   `closes[i]`** (confirmé dans le code).
+
+**Conclusion : pas un bug.** Le -99,81% vient de la compounding d'une
+espérance déjà négative (-0,385R) sur ~1600 trades : `(1-0,01×0,385)^1595 ≈
+e^-6,15 ≈ 0,002`, soit -99,8%, exactement ce qui est observé. Mais cette
+espérance négative est structurellement aggravée par les frais fixes qui
+deviennent disproportionnés dès que l'ATR (donc le SL) est petit — un
+mécanisme réel de risk management (pas un artefact de calcul), à garder en
+tête pour tout réglage SL basé sur l'ATR en période de faible volatilité.
+
+## Test floor de distance minimum sur SL ATR (session 2)
+
+Suite au diagnostic ci-dessus, test d'un plancher de distance minimum sur
+le calcul du SL en ATR : `sl_distance = max(ATR(14) × 1.5, floor_pips ×
+pip_size)`. Changement isolé dans `engine/backtest.py`
+(`BacktestConfig.sl_floor_pips` / `pip_size`, appliqué uniquement dans
+`_compute_sl_tp` pour le mode `atr` — aucune autre logique modifiée).
+EURUSD 15m, même période (2025-01 → 2026-06), mêmes frais (0,015%/côté),
+multiplicateur ATR x1.5 identique au run précédent.
+
+| Configuration | n_trades | winrate_pct | esperance_R | rendement_net_pct | max_DD_pct | fee_drag_R_moyen |
+|---|---|---|---|---|---|---|
+| ATR(14) x1.5 sans floor | 1595 | 29.6 | -0.3851 | -99.81 | -99.82 | 0.3770 |
+| ATR(14) x1.5 floor 5 pips | 1595 | 29.7 | -0.3811 | -99.80 | -99.81 | 0.3749 |
+| ATR(14) x1.5 floor 8 pips | 1552 | 29.2 | -0.3474 | -99.60 | -99.61 | 0.3383 |
+
+Le floor réduit légèrement `fee_drag_R_moyen` (0,377 → 0,375 → 0,338) et
+l'espérance s'améliore marginalement, mais **le rendement net reste
+proche de -100% dans les trois cas**. Le floor limite l'effet des cas
+extrêmes (ATR très petit) mais n'agit pas sur la cause principale : la
+majorité des trades restent à une distance ATR bien supérieure au floor
+(médiane 6,37 pips pour un floor testé à 5 et 8 pips), donc le floor ne
+change presque rien pour la masse des trades — seule la queue basse de la
+distribution ATR est affectée. Le problème de fond reste l'espérance de
+base négative de la stratégie (croisement MM9/21 nu), pas le mode de calcul
+du SL.
 
 ## Résultats déjà obtenus (TradingView, hors de ce dépôt — à ne pas reproduire tel quel, juste pour contexte)
 
