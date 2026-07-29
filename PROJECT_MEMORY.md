@@ -1,6 +1,6 @@
 # PROJECT_MEMORY — Backtest MM9/21 (validation avant intégration à l'app trading journal)
 
-Dernière mise à jour : 2026-07-29 (session 4)
+Dernière mise à jour : 2026-07-29 (session 5)
 
 ## Changement de direction (session 3)
 
@@ -490,3 +490,137 @@ breakout de range + filtre horaire, à 3 lookbacks) n'a d'espérance positive
 sur EURUSD 15m 2025-01→2026-06. La structure horaire de volatilité est
 réelle (confirmée statistiquement) mais ne s'est pas encore traduite en
 edge exploitable dans les deux logiques testées.
+
+## Comparatif de timeframes 15m / 1h / 4h (session 5)
+
+Objectif : voir si une timeframe différente change fondamentalement la
+structure statistique (moins de bruit de microstructure, plus de
+comportement directionnel exploitable), en gardant en tête la contrainte
+pratique de fréquence de trades (assez pour progresser une évaluation prop
+firm dans un délai raisonnable, pas trop pour retomber dans le bruit/frais
+qui dominent comme en 15m/1m).
+
+Données : `data/eurusd_15m/EURUSD_1h.parquet` (9239 barres) et
+`EURUSD_4h.parquet` (2384 barres), resamplées depuis le 1m déjà en local
+(`scripts/resample_eurusd_timeframes.py`), OHLC standard. Même période que
+le 15m (2025-01-01 → 2026-06-26). Script : `scripts/explore_timeframe_comparison.py`
+(réutilise les mêmes fonctions que l'exploration 15m de la session 3 —
+même méthodologie, `hurst_rs` appliqué aux rendements, pas au prix brut).
+
+Lags et fenêtres adaptés à l'échelle de chaque TF pour rester pertinents
+(fenêtres ADF/Hurst alignées sur des durées calendaires comparables,
+~5 jours et ~21 jours, entre les trois TF) :
+
+| TF | position 1 | position 2 | position 3 | position 4 | fenêtre courte | fenêtre longue |
+|---|---|---|---|---|---|---|
+| 15m | 1 barre (15min) | 5 barres (1h15) | 20 barres (5h) | 50 barres (12h30) | 500 barres (~5,2j) | 2000 barres (~20,8j) |
+| 1h | 1 barre (1h) | 4 barres (4h) | 24 barres (1j) | 48 barres (2j) | 120 barres (5j) | 504 barres (21j) |
+| 4h | 1 barre (4h) | 6 barres (1j) | 30 barres (5j) | 60 barres (10j) | 30 barres (5j) | 126 barres (21j) |
+
+### 1. Autocorrélation des rendements (par position de lag, cf. légende ci-dessus)
+
+| TF | position 1 | position 2 | position 3 | position 4 |
+|---|---|---|---|---|
+| 15m | -0.02071 | -0.00711 | -0.00580 | -0.00084 |
+| 1h | -0.00821 | -0.00427 | 0.00520 | 0.00258 |
+| 4h | -0.00206 | 0.00738 | -0.02064 | -0.01423 |
+
+*Interprétation neutre* : les trois TF montrent une autocorrélation proche
+de zéro à toutes les positions testées, sans signe fort de mean-reversion
+ni de momentum. Le 15m a la plus forte autocorrélation négative au lag 1
+(-0,021) ; en 1h et 4h, les valeurs sont plus petites et changent de signe
+selon la position — pas de structure directionnelle claire et robuste sur
+aucune des trois échelles.
+
+### 2. ADF glissant (fenêtres ~5 jours et ~21 jours)
+
+| TF | n fenêtres courtes | % stationnaires (courte) | n fenêtres longues | % stationnaires (longue) |
+|---|---|---|---|---|
+| 15m | 365 | 5.5% | 88 | 4.5% |
+| 1h | 380 | 4.5% | 88 | 8.0% |
+| 4h | 393 | 9.7% | 91 | 6.6% |
+
+*Interprétation neutre* : dans les trois TF, l'immense majorité des
+fenêtres (90-95%) ne rejette pas la racine unitaire — comportement de
+marche aléatoire dominant à toutes les échelles testées. Le 4h montre une
+proportion légèrement plus élevée de fenêtres stationnaires sur la fenêtre
+courte (9,7% vs 4,5-5,5%), mais reste minoritaire — pas un changement de
+régime, une nuance seulement.
+
+### 3. Exposant de Hurst (sur rendements, fenêtres ~5 jours et ~21 jours)
+
+| TF | H moyen (courte) | % trending (courte) | % mean-rev (courte) | H moyen (longue) | % trending (longue) | % mean-rev (longue) |
+|---|---|---|---|---|---|---|
+| 15m | 0.556 | 57.8% | 1.1% | 0.540 | 34.1% | 0.0% |
+| 1h | 0.567 | 56.8% | 8.2% | 0.554 | 60.2% | 0.0% |
+| 4h | 0.571 | 50.9% | 35.9% | 0.593 | 67.0% | 3.3% |
+
+*Interprétation neutre* : le H moyen augmente légèrement avec la
+timeframe (0,54-0,56 en 15m → 0,57-0,59 en 4h), suggérant une persistance
+un peu plus marquée sur les échelles plus longues — cohérent avec le fait
+que les tendances de fond mettent plus de temps à se dissiper sur un TF
+plus grossier. Le 4h montre aussi une proportion notable de fenêtres
+courtes "mean-reverting" (35,9%, bien plus qu'en 15m/1h), à interpréter
+avec prudence : la fenêtre courte du 4h ne fait que 30 barres (le minimum
+statistiquement exploitable pour cette méthode), donc l'estimation y est
+plus bruitée qu'aux autres échelles.
+
+### 4. Amplitude de la saisonnalité horaire (volatilité par heure UTC)
+
+| TF | vol min % | vol max % | ratio max/min |
+|---|---|---|---|
+| 15m | 0.0273 | 0.0783 | 2.87 |
+| 1h | 0.0555 | 0.1579 | 2.85 |
+| 4h | 0.1383 | 0.2560 | 1.85 |
+
+*Interprétation neutre* : la saisonnalité horaire de la volatilité est
+présente et du même ordre de grandeur en 15m et 1h (ratio ~2,85-2,87 entre
+l'heure la plus calme et la plus volatile). Elle s'atténue en 4h (ratio
+1,85) — attendu, puisqu'une bougie 4h agrège plusieurs sessions et lisse
+mécaniquement l'écart entre heures. Point secondaire en 4h comme
+anticipé dans la demande.
+
+### 5. Clustering de volatilité (autocorrélation de \|rendement\|, mêmes positions que le point 1)
+
+| TF | position 1 | position 2 | position 3 | position 4 |
+|---|---|---|---|---|
+| 15m | 0.26591 | 0.19577 | 0.12452 | 0.05014 |
+| 1h | 0.20305 | 0.11124 | 0.13312 | 0.14949 |
+| 4h | 0.12299 | 0.11496 | 0.06732 | 0.02844 |
+
+*Interprétation neutre* : le clustering de volatilité est confirmé sur les
+trois TF (autocorrélation positive), mais son intensité diminue avec la
+timeframe (position 1 : 0,266 en 15m → 0,203 en 1h → 0,123 en 4h). Il
+persiste plus longtemps en 1h (encore ~0,15 à la position 4 = 2 jours)
+qu'en 15m ou 4h à horizon comparable — cohérent avec le clustering de
+volatilité étant un phénomène surtout intraday/microstructure, qui s'estompe
+en partie en zoomant.
+
+### 6. Fréquence des croisements MM9/21 par mois (proxy de volume de trades, pas un test de stratégie)
+
+| TF | n croisements total | croisements / mois |
+|---|---|---|
+| 15m | 2045 | 115.3 |
+| 1h | 485 | 27.3 |
+| 4h | 110 | 6.2 |
+
+*Interprétation neutre* : la fréquence de signal chute d'un facteur ~4 à
+chaque changement d'échelle (15m→1h→4h), cohérent avec le ratio de barres
+entre TF. En 4h, ~6 signaux/mois est probablement insuffisant pour
+progresser rapidement dans une évaluation prop firm à risque constant
+(peu d'occasions de valider l'objectif de gain dans un délai court) ; en
+15m, ~115/mois retombe dans la zone où le bruit de microstructure et les
+frais dominent (cf. sessions 2-4) ; le 1h (~27/mois, soit ~1 signal par
+jour ouvré) est intermédiaire entre les deux contraintes évoquées dans la
+demande — à garder à l'esprit pour le choix de TF d'une future stratégie,
+sans que cela ne préjuge de la qualité du signal lui-même sur ce TF.
+
+### Bilan comparatif
+
+Aucune des trois timeframes ne montre de rupture nette de structure
+statistique (pas de passage franc à un régime mean-reverting ou fortement
+trending) — le comportement reste dominé par la marche aléatoire dans les
+trois cas, avec une persistance (Hurst) et un clustering de volatilité qui
+s'atténuent progressivement en zoomant. La différence la plus actionnable
+entre TF reste la fréquence de signal brute (point 6), pas un changement
+qualitatif de la structure du marché.
