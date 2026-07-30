@@ -1,15 +1,24 @@
 """
-Collecte le funding rate et l'open interest de contrats perpetual Binance
-Futures (via ccxt) et pousse les résultats vers Supabase (table
-funding_oi_data, voir supabase_schema.sql).
+Collecte le funding rate et l'open interest de contrats perpetual OKX (via
+ccxt) et pousse les résultats vers Supabase (table funding_oi_data, voir
+supabase_schema.sql).
+
+Binance a été écarté : son API renvoie une 451 "restricted location"
+depuis les runners GitHub Actions hébergés (IP US), confirmé en pratique
+(voir data_collection/diagnose_exchanges.py, supprimé depuis -- OKX,
+Bitget, KuCoin Futures et HTX passaient, seul Bybit était aussi bloqué).
+OKX a été retenu comme le plus liquide des quatre candidats valides.
 
 Conçu pour tourner toutes les 15 minutes via GitHub Actions
 (.github/workflows/collect_data.yml). Chaque cycle est indépendant :
-aucun état n'est conservé entre deux runs.
+aucun état n'est conservé entre deux runs. Chaque run fait un seul appel
+API par symbole pour la valeur *actuelle* (pas d'historique, pas
+d'agrégation sur les 15 minutes) -- résultat : un instantané toutes les
+15 minutes dans Supabase, pas une collecte continue.
 
-Gestion d'erreurs : toute erreur réseau/API (Binance ou Supabase) est
-loggée et n'interrompt jamais le processus avec un code de sortie non nul
--- un cycle raté ne doit pas faire échouer le workflow GitHub Actions, le
+Gestion d'erreurs : toute erreur réseau/API (OKX ou Supabase) est loggée
+et n'interrompt jamais le processus avec un code de sortie non nul -- un
+cycle raté ne doit pas faire échouer le workflow GitHub Actions, le
 suivant réessaiera 15 minutes plus tard.
 """
 
@@ -79,7 +88,7 @@ def push_to_supabase(rows: list) -> bool:
 
 
 def main() -> int:
-    exchange = ccxt.binanceusdm({"enableRateLimit": True})
+    exchange = ccxt.okx({"enableRateLimit": True})
     now_utc = datetime.now(timezone.utc).isoformat()
 
     rows = []
@@ -97,7 +106,7 @@ def main() -> int:
         except (ccxt.NetworkError, ccxt.ExchangeError) as e:
             # Timeout, erreur HTTP, rate limit, symbole indisponible, etc.
             # -- on logge et on continue avec les autres symboles.
-            logger.error(f"Erreur Binance pour {label} ({ccxt_symbol}) : {e}")
+            logger.error(f"Erreur OKX pour {label} ({ccxt_symbol}) : {e}")
         except Exception as e:
             # Filet de sécurité : une erreur inattendue sur UN symbole ne
             # doit pas empêcher de traiter les autres ni de crasher le run.
