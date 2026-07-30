@@ -1,0 +1,31 @@
+name: Collect funding rate & open interest
+
+on:
+  schedule:
+    # Toutes les 15 minutes. GitHub Actions n'exécute pas les crons de
+    # façon parfaitement ponctuelle (délai possible en cas de forte
+    # charge sur les runners partagés) -- c'est une limite de la
+    # plateforme, pas du script.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}  # permet de lancer le workflow manuellement depuis l'onglet Actions
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer les dépendances
+        run: pip install -r data_collection/requirements.txt
+
+      - name: Lancer la collecte
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python data_collection/collect_funding_oi.py
