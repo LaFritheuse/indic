@@ -1,6 +1,6 @@
 -- Table de collecte du ratio long/short (comptes) BTC/SOL sur Binance,
--- via l'API Coinalyze (endpoint long-short-ratio-history).
--- A coller dans l'éditeur SQL de Supabase.
+-- via l'API Coinalyze (endpoint long-short-ratio-history). Déjà
+-- appliquée manuellement en production.
 
 create table if not exists long_short_ratio_data (
     id bigint generated always as identity primary key,

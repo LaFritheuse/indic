@@ -1,7 +1,8 @@
 """
 Collecte les liquidations BTC/SOL sur Binance (via l'API Coinalyze,
 endpoint liquidation-history) et pousse les résultats vers Supabase
-(table liquidations_data, voir liquidations_schema.sql).
+(table liquidations_data, voir
+supabase/migrations/20260729120000_liquidations_data.sql).
 
 IMPORTANT -- limite connue de la donnée : le flux public de liquidations
 de Binance est échantillonné à 1 message/seconde maximum depuis 2021.

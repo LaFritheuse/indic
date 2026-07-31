@@ -1,5 +1,6 @@
 -- Table de collecte des liquidations BTC/SOL (Binance, via Coinalyze)
--- A coller dans l'éditeur SQL de Supabase.
+-- Déjà appliquée manuellement en production -- conservée ici pour
+-- l'historique complet (idempotent, aucun risque à la rejouer).
 
 create table if not exists liquidations_data (
     id bigint generated always as identity primary key,

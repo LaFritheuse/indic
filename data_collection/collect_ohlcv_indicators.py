@@ -1,7 +1,8 @@
 """
 Calcule VWAP et CVD (Cumulative Volume Delta) à partir des bougies OHLCV
 OKX (via ccxt) pour BTC/SOL perpetual, et pousse le résultat vers
-Supabase (table ohlcv_indicators, voir ohlcv_indicators_schema.sql).
+Supabase (table ohlcv_indicators, voir
+supabase/migrations/20260731211000_ohlcv_indicators.sql).
 
 Pas de nouvelle source externe : ce script recalcule tout depuis les
 bougies déjà récupérables via ccxt (même appel que

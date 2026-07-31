@@ -1,5 +1,6 @@
--- Table de collecte funding rate / open interest (Binance Futures via ccxt)
--- A coller dans l'éditeur SQL de Supabase.
+-- Table de collecte funding rate / open interest (OKX perpetual via ccxt)
+-- Déjà appliquée manuellement en production -- conservée ici pour
+-- l'historique complet (idempotent, aucun risque à la rejouer).
 
 create table if not exists funding_oi_data (
     id bigint generated always as identity primary key,

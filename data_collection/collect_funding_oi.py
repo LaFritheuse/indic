@@ -1,7 +1,8 @@
 """
 Collecte le funding rate et l'open interest de contrats perpetual OKX (via
 ccxt) et pousse les résultats vers Supabase (table funding_oi_data, voir
-supabase_schema.sql).
+supabase/migrations/20260728120000_funding_oi_data.sql et
+supabase/migrations/20260731210000_funding_oi_add_oi_usd.sql).
 
 Binance a été écarté : son API renvoie une 451 "restricted location"
 depuis les runners GitHub Actions hébergés (IP US), confirmé en pratique

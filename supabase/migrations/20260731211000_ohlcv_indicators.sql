@@ -1,8 +1,8 @@
 -- Table des bougies OHLCV OKX (BTC/SOL perpetual, 5m) et des indicateurs
--- calculés VWAP / CVD (voir collect_ohlcv_indicators.py pour la méthode
--- de calcul et ses limites, notamment sur le CVD qui est une
--- approximation basée sur la couleur des bougies, pas un vrai delta
--- acheteur/vendeur). A coller dans l'éditeur SQL de Supabase.
+-- calculés VWAP / CVD (voir data_collection/collect_ohlcv_indicators.py
+-- pour la méthode de calcul et ses limites, notamment sur le CVD qui
+-- est une approximation basée sur la couleur des bougies, pas un vrai
+-- delta acheteur/vendeur). Déjà appliquée manuellement en production.
 
 create table if not exists ohlcv_indicators (
     id bigint generated always as identity primary key,

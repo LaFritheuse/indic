@@ -2,7 +2,7 @@
 Collecte le ratio long/short (comptes) BTC/SOL sur Binance, via l'API
 Coinalyze (endpoint long-short-ratio-history), et pousse les résultats
 vers Supabase (table long_short_ratio_data, voir
-long_short_ratio_schema.sql).
+supabase/migrations/20260731210500_long_short_ratio_data.sql).
 
 Champs bruts renvoyés par Coinalyze (confirmés via le code source du
 wrapper ivarurdalen/coinalyze, HistoryEndpoint.LSRATIO) :
