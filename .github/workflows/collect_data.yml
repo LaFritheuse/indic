@@ -1,4 +1,4 @@
-name: Collect funding rate & open interest
+name: Collect funding rate, open interest & liquidations
 
 on:
   schedule:
@@ -24,8 +24,15 @@ jobs:
       - name: Installer les dépendances
         run: pip install -r data_collection/requirements.txt
 
-      - name: Lancer la collecte
+      - name: Lancer la collecte funding rate / open interest
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python data_collection/collect_funding_oi.py
+
+      - name: Lancer la collecte liquidations
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          COINALIZE_API_KEY: ${{ secrets.COINALIZE_API_KEY }}
+        run: python data_collection/collect_liquidations.py
