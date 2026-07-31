@@ -9,25 +9,38 @@ depuis les runners GitHub Actions hébergés (IP US), confirmé en pratique
 Bitget, KuCoin Futures et HTX passaient, seul Bybit était aussi bloqué).
 OKX a été retenu comme le plus liquide des quatre candidats valides.
 
-Conçu pour tourner toutes les 15 minutes via GitHub Actions
-(.github/workflows/collect_data.yml). Chaque cycle est indépendant :
-aucun état n'est conservé entre deux runs. Chaque run fait un seul appel
-API par symbole pour la valeur *actuelle* (pas d'historique, pas
-d'agrégation sur les 15 minutes) -- résultat : un instantané toutes les
-15 minutes dans Supabase, pas une collecte continue.
+Conçu pour tourner toutes les 15 minutes, via GitHub Actions
+(.github/workflows/collect_data.yml) ou un hôte auto-géré (voir
+data_collection/vps_deploy/ -- systemd sous Linux, tâche planifiée sous
+Windows). Chaque cycle est indépendant : aucun état n'est conservé entre
+deux runs. Chaque run fait un seul appel API par symbole pour la valeur
+*actuelle* (pas d'historique, pas d'agrégation sur les 15 minutes) --
+résultat : un instantané toutes les 15 minutes dans Supabase, pas une
+collecte continue.
 
 Gestion d'erreurs : toute erreur réseau/API (OKX ou Supabase) est loggée
 et n'interrompt jamais le processus avec un code de sortie non nul -- un
-cycle raté ne doit pas faire échouer le workflow GitHub Actions, le
-suivant réessaiera 15 minutes plus tard.
+cycle raté ne doit pas faire échouer le run, le suivant réessaiera 15
+minutes plus tard.
 """
 
 import logging
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import ccxt
+
+# Charge data_collection/vps_deploy/.env si présent (déploiement VPS/Windows
+# auto-géré). Sans effet sur GitHub Actions : le fichier n'existe pas là-bas
+# et les secrets arrivent déjà comme variables d'environnement -- dotenv ne
+# les écrase jamais (override=False par défaut).
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / "vps_deploy" / ".env")
+except ImportError:
+    pass
 import requests
 
 logging.basicConfig(

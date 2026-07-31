@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 data_collection/vps_deploy/venv/
 data_collection/vps_deploy/.env
+data_collection/vps_deploy/collect.log
