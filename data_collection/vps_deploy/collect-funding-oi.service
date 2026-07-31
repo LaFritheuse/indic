@@ -1,0 +1,10 @@
+[Unit]
+Description=Collecte funding rate & open interest (OKX -> Supabase)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/indic
+EnvironmentFile=/opt/indic/data_collection/vps_deploy/.env
+ExecStart=/opt/indic/data_collection/vps_deploy/venv/bin/python data_collection/collect_funding_oi.py

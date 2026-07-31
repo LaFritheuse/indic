@@ -1,0 +1,10 @@
+[Unit]
+Description=Toutes les 15 minutes : collecte funding rate & open interest
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
