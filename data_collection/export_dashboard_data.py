@@ -1,7 +1,8 @@
 """
-Exporte un instantané des 4 tables de collecte (funding_oi_data,
-liquidations_data, long_short_ratio_data, ohlcv_indicators) vers un seul
-fichier JSON (dashboard/data.json), pour alimenter un dashboard HTML
+Exporte un instantané des 5 tables de collecte (funding_oi_data,
+liquidations_data, long_short_ratio_data, ohlcv_indicators,
+whale_trades_data) vers un seul fichier JSON (dashboard/data.json),
+pour alimenter un dashboard HTML
 statique (voir dashboard/dashboard.html) -- ce dernier ne peut pas
 interroger Supabase en direct (page publiée en artifact, CSP stricte
 qui bloque les requêtes vers un hôte externe), donc les données sont
@@ -31,6 +32,7 @@ TABLES = {
     "liquidations": ("liquidations_data", "timestamp,longvolume,shortvolume"),
     "long_short_ratio": ("long_short_ratio_data", "timestamp,ratio,longpct,shortpct"),
     "ohlcv": ("ohlcv_indicators", "timestamp,open,high,low,close,volume,vwap,cvd"),
+    "whale_trades": ("whale_trades_data", "timestamp,side,price,amount,notional_usd"),
 }
 
 REQUEST_TIMEOUT_SECONDS = 30
