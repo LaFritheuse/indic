@@ -1,4 +1,4 @@
-name: Collect funding rate, open interest & liquidations
+name: Collect funding rate, open interest, liquidations, long/short ratio & OHLCV indicators
 
 on:
   schedule:
@@ -36,3 +36,16 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           COINALIZE_API_KEY: ${{ secrets.COINALIZE_API_KEY }}
         run: python data_collection/collect_liquidations.py
+
+      - name: Lancer la collecte long/short ratio
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          COINALIZE_API_KEY: ${{ secrets.COINALIZE_API_KEY }}
+        run: python data_collection/collect_long_short_ratio.py
+
+      - name: Calculer VWAP / CVD depuis OHLCV
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python data_collection/collect_ohlcv_indicators.py

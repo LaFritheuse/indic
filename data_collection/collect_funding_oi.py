@@ -29,6 +29,13 @@ Gestion d'erreurs : toute erreur réseau/API (OKX ou Supabase) est loggée
 et n'interrompt jamais le processus avec un code de sortie non nul -- un
 cycle raté ne doit pas faire échouer le run, le suivant réessaiera 15
 minutes plus tard.
+
+Colonnes open_interest vs oi_usd : open_interest est le nombre BRUT de
+contrats (champ OKX "oi"), oi_usd est la valeur notionnelle en dollars
+(champ OKX "oiUsd"). Les deux ne sont PAS interchangeables -- la taille
+d'un contrat diffère selon le symbole (0.01 BTC vs 1 SOL au moment de
+l'écriture), donc comparer open_interest brut entre BTC et SOL est
+trompeur. oi_usd est directement comparable entre symboles.
 """
 
 import logging
@@ -104,9 +111,13 @@ def fetch_funding_and_oi(exchange: ccxt.Exchange, ccxt_symbol: str) -> dict:
     à quel symbole elles se rapportent pour le log."""
     funding = exchange.fetch_funding_rate(ccxt_symbol)
     open_interest = exchange.fetch_open_interest(ccxt_symbol)
+    # oiUsd (valeur notionnelle) n'est pas mappé par ccxt -- il faut le
+    # lire dans le champ brut OKX "info" (voir docstring du module).
+    oi_usd_raw = (open_interest.get("info") or {}).get("oiUsd")
     return {
         "funding_rate": funding.get("fundingRate"),
         "open_interest": open_interest.get("openInterestAmount"),
+        "oi_usd": float(oi_usd_raw) if oi_usd_raw not in (None, "") else None,
     }
 
 
@@ -158,9 +169,13 @@ def main() -> int:
                 "symbol": label,
                 "funding_rate": data["funding_rate"],
                 "open_interest": data["open_interest"],
+                "oi_usd": data["oi_usd"],
             }
             rows.append(row)
-            logger.info(f"{label}: funding_rate={row['funding_rate']}, open_interest={row['open_interest']}")
+            logger.info(
+                f"{label}: funding_rate={row['funding_rate']}, "
+                f"open_interest={row['open_interest']} contrats, oi_usd={row['oi_usd']}"
+            )
         except (ccxt.NetworkError, ccxt.ExchangeError) as e:
             # Timeout, erreur HTTP, rate limit, symbole indisponible, etc.
             # -- on logge et on continue avec les autres symboles.

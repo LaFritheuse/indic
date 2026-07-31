@@ -1,34 +1,31 @@
 """
-Collecte les liquidations BTC/SOL sur Binance (via l'API Coinalyze,
-endpoint liquidation-history) et pousse les résultats vers Supabase
-(table liquidations_data, voir liquidations_schema.sql).
+Collecte le ratio long/short (comptes) BTC/SOL sur Binance, via l'API
+Coinalyze (endpoint long-short-ratio-history), et pousse les résultats
+vers Supabase (table long_short_ratio_data, voir
+long_short_ratio_schema.sql).
 
-IMPORTANT -- limite connue de la donnée : le flux public de liquidations
-de Binance est échantillonné à 1 message/seconde maximum depuis 2021.
-Lors des cascades de liquidations à fort volume, une partie des
-liquidations réelles n'est donc PAS représentée : longvolume/shortvolume
-sont une SOUS-ESTIMATION du volume réellement liquidé pendant les
-périodes de forte volatilité, pas un décompte exhaustif. A garder en
-tête pour toute interprétation future (ex: ne pas comparer directement
-à l'open interest total, ne pas traiter ces chiffres comme complets).
+Champs bruts renvoyés par Coinalyze (confirmés via le code source du
+wrapper ivarurdalen/coinalyze, HistoryEndpoint.LSRATIO) :
+  r -> ratio    (ratio long/short en nombre de comptes, ex: 1.19 =
+                 1.19x plus de comptes en position long qu'en short)
+  l -> longpct  (% de comptes en position long)
+  s -> shortpct (% de comptes en position short)
 
-Rate limit Coinalyze : 40 requêtes/minute par clé API (429 + en-tête
-Retry-After en cas de dépassement). Ce script fait 2 appels par run
-(résolution des symboles + historique liquidation pour les 2 symboles
-en un seul appel groupé) -- largement sous la limite même si le cron
-se déclenche plusieurs fois rapprochées.
+IMPORTANT -- ce ratio porte sur le NOMBRE de comptes, pas sur les
+volumes ou l'exposition en dollars : un petit nombre de gros comptes
+peut peser autant qu'un grand nombre de petits comptes. A garder en
+tête pour toute interprétation (ne pas confondre avec un ratio pondéré
+par la taille des positions).
 
-Fenêtre de lookback volontairement large (3h, pas juste "les 15
-dernières minutes") : liquidation-history renvoie des buckets datés
-(pas une valeur instantanée comme funding/OI), et le cron GitHub Actions
-de ce repo s'est révélé irrégulier (intervalle réel de 1h à 3h30 au lieu
-des 15 min configurées). Une fenêtre large + upsert idempotent
-(on_conflict symbol+timestamp) permet de rattraper automatiquement les
-creux du cron sans dupliquer les lignes déjà collectées.
-
-La mécanique d'appel à Coinalyze (résolution de symboles, gestion du
-rate limit) est partagée avec collect_long_short_ratio.py -- voir
-coinalyze_client.py.
+Même mécanique que collect_liquidations.py (résolution dynamique des
+symboles Binance via /future-markets, fenêtre de lookback large 3h +
+upsert idempotent on_conflict symbol+timestamp pour rattraper les creux
+du cron GitHub Actions, irrégulier -- voir collect_liquidations.py pour
+le détail). La logique d'appel Coinalyze commune est dans
+coinalyze_client.py. Rate limit Coinalyze 40 req/min : ce script fait 2
+appels par run (résolution symboles + historique groupé), comme
+collect_liquidations.py -- largement sous la limite même si les deux
+scripts tournent dans le même run du workflow.
 """
 
 import logging
@@ -41,20 +38,20 @@ import requests
 import coinalyze_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("collect_liquidations")
+logger = logging.getLogger("collect_long_short_ratio")
 
 # base_asset Coinalyze -> libellé stocké dans Supabase
 TARGETS = {"BTC": "BTCUSDT", "SOL": "SOLUSDT"}
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-SUPABASE_TABLE = "liquidations_data"
+SUPABASE_TABLE = "long_short_ratio_data"
 
 INTERVAL = "1min"
 LOOKBACK_HOURS = 3
 
 
-def fetch_liquidation_history(coinalyze_symbols: list) -> list:
+def fetch_long_short_ratio_history(coinalyze_symbols: list) -> list:
     now = datetime.now(timezone.utc)
     start = now - timedelta(hours=LOOKBACK_HOURS)
     params = {
@@ -63,7 +60,7 @@ def fetch_liquidation_history(coinalyze_symbols: list) -> list:
         "from": int(start.timestamp()),
         "to": int(now.timestamp()),
     }
-    return coinalyze_client.coinalyze_get("liquidation-history", params)
+    return coinalyze_client.coinalyze_get("long-short-ratio-history", params)
 
 
 def push_to_supabase(rows: list) -> bool:
@@ -102,7 +99,7 @@ def main() -> int:
         logger.error("Aucun symbole résolu -- rien à collecter ce cycle.")
         return 0
 
-    response = fetch_liquidation_history(list(symbol_map.values()))
+    response = fetch_long_short_ratio_history(list(symbol_map.values()))
     label_by_coinalyze_symbol = {v: TARGETS[k] for k, v in symbol_map.items()}
 
     rows = []
@@ -116,13 +113,14 @@ def main() -> int:
                 "timestamp": datetime.fromtimestamp(bucket["t"], tz=timezone.utc).isoformat(),
                 "symbol": label,
                 "interval": INTERVAL,
-                "longvolume": bucket.get("l"),
-                "shortvolume": bucket.get("s"),
+                "ratio": bucket.get("r"),
+                "longpct": bucket.get("l"),
+                "shortpct": bucket.get("s"),
             })
         logger.info(f"{label}: {len(history)} buckets {INTERVAL} récupérés (fenêtre {LOOKBACK_HOURS}h)")
 
     if not rows:
-        logger.error("Aucune donnée de liquidation collectée ce cycle.")
+        logger.error("Aucune donnée de ratio long/short collectée ce cycle.")
         return 0
 
     if push_to_supabase(rows):
