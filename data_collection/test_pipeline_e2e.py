@@ -7,15 +7,20 @@ funding_rate / open_interest.
 
 Ceci teste UNIQUEMENT la mécanique du pipeline (collecte -> stockage ->
 récupération -> jointure -> visualisation), pas la qualité d'un signal.
-Avec ~14 points sur ~26h et une résolution de 1-3h (cf. problème de cron
-GitHub Actions connu), ce n'est pas un échantillon exploitable pour une
-quelconque conclusion de trading.
+Avec ~14-18 points sur ~26-38h et une résolution de 1-3h (cf. problème de
+cron GitHub Actions connu), ce n'est pas un échantillon exploitable pour
+une quelconque conclusion de trading.
 
-A supprimer une fois le test terminé (diagnostic ponctuel).
+Les OHLCV (data/crypto_5m/*.parquet) et les graphiques (results/*.png)
+sont committés dans le repo par le workflow (voir test_pipeline_e2e.yml,
+permissions contents:write le temps de ce job). Le script lui-même et le
+workflow peuvent être supprimés une fois le test validé -- les données
+et graphiques produits, eux, restent.
 """
 
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import ccxt
 import matplotlib
@@ -27,6 +32,11 @@ import requests
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 TABLE = "funding_oi_data"
+
+DATA_DIR = Path("data/crypto_5m")
+RESULTS_DIR = Path("results")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 SYMBOLS = {
     "BTCUSDT": "BTC/USDT:USDT",
@@ -81,7 +91,7 @@ def analyze_symbol(label: str, ccxt_symbol: str, exchange):
     ohlcv = fetch_ohlcv(exchange, ccxt_symbol, start.to_pydatetime(), end.to_pydatetime(), timeframe="5m")
     print(f"{label}: {len(fo)} points funding/OI, {len(ohlcv)} bougies OHLCV 5m OKX ({start} -> {end})")
 
-    ohlcv_path = f"ohlcv_{label}_5m.parquet"
+    ohlcv_path = DATA_DIR / f"{label}_5m.parquet"
     ohlcv.to_parquet(ohlcv_path)
     print(f"OHLCV sauvegardées : {ohlcv_path}")
 
@@ -113,7 +123,7 @@ def analyze_symbol(label: str, ccxt_symbol: str, exchange):
 
     fig.autofmt_xdate()
     plt.tight_layout()
-    out_path = f"pipeline_test_{label}.png"
+    out_path = RESULTS_DIR / f"pipeline_test_{label}.png"
     fig.savefig(out_path, dpi=120)
     plt.close(fig)
     print(f"Graphique sauvegardé : {out_path}")
