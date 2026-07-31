@@ -70,7 +70,13 @@ SUPABASE_TABLE = "whale_trades_data"
 # creux du cron GitHub Actions -- upsert idempotent en aval.
 LOOKBACK_HOURS = 3
 PAGE_LIMIT = 100            # max autorisé par OKX sur history-trades
-MAX_PAGES_PER_SYMBOL = 30   # plafond de sécurité (30*100 = 3000 trades/symbole/run)
+# Plafond de sécurité. Constaté en conditions réelles (premier run) :
+# BTC et SOL génèrent chacun plus de 3000 trades sur une fenêtre de 3h,
+# donc l'ancien plafond de 30 pages ne couvrait pas la fenêtre entière
+# (avertissement systématique dans les logs). Relevé à 300 pages
+# (30 000 trades/symbole/run, ~1min supplémentaire par symbole) pour
+# une marge confortable -- à revoir si le volume réel dépasse encore ça.
+MAX_PAGES_PER_SYMBOL = 300
 REQUEST_TIMEOUT_SECONDS = 20
 
 
@@ -98,9 +104,11 @@ def fetch_recent_trades(exchange: ccxt.Exchange, market_id: str, since_ms: int) 
         after_ts = oldest_ts
 
         if page == MAX_PAGES_PER_SYMBOL - 1:
+            gap_minutes = (oldest_ts - since_ms) / 60_000
             logger.warning(
                 f"{market_id}: plafond de {MAX_PAGES_PER_SYMBOL} pages atteint -- "
-                f"la fenêtre de {LOOKBACK_HOURS}h n'a peut-être pas été couverte en entier."
+                f"couverture réelle jusqu'à {gap_minutes:.0f} min avant la limite demandée "
+                f"({LOOKBACK_HOURS*60} min), fenêtre pas couverte en entier."
             )
 
     return [t for t in all_trades if int(t["ts"]) >= since_ms]
