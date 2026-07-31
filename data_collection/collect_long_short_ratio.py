@@ -47,7 +47,12 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 SUPABASE_TABLE = "long_short_ratio_data"
 
-INTERVAL = "1min"
+INTERVAL = "5min"  # 1min essayé initialement -> réponse vide (le ratio
+                   # long/short est probablement calculé côté Binance à
+                   # une granularité plus grossière que les liquidations,
+                   # qui elles sont pilotées par un flux d'événements
+                   # temps réel). Non confirmé formellement (pas d'accès
+                   # direct à la doc Coinalyze), mais premier test simple.
 LOOKBACK_HOURS = 3
 
 
