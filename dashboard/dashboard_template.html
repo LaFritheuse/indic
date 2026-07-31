@@ -1,0 +1,513 @@
+<title>Dashboard collecte crypto — BTC/SOL</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-blue:    #2a78d6;
+    --series-orange:  #eb6834;
+    --series-aqua:    #1baf7a;
+    --series-violet:  #4a3aa7;
+    --series-red:     #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-blue:    #3987e5;
+      --series-orange:  #d95926;
+      --series-aqua:    #199e70;
+      --series-violet:  #9085e9;
+      --series-red:     #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-blue:    #3987e5;
+    --series-orange:  #d95926;
+    --series-aqua:    #199e70;
+    --series-violet:  #9085e9;
+    --series-red:     #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  #app {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    padding: 24px 16px 64px;
+    max-width: 980px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 4px; }
+  .note {
+    color: var(--text-muted); font-size: 0.8rem; margin: 0 0 28px;
+    padding: 10px 14px; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px 12px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 2px; }
+  .card .desc { color: var(--text-secondary); font-size: 0.82rem; margin: 0 0 12px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0 4px; font-size: 0.82rem; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+  .legend-swatch.dot { width: 8px; height: 8px; border-radius: 50%; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab-btn {
+    font-family: inherit; font-size: 0.85rem; padding: 7px 16px; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .tab-btn.active { background: var(--series-blue); color: #fff; border-color: var(--series-blue); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .chart-wrap { position: relative; }
+  svg.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .axis-label { fill: var(--text-muted); font-size: 10px; }
+  .series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .series-area { opacity: 0.10; }
+  .crosshair-line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3,3; pointer-events: none; }
+  .crosshair-dot { stroke: var(--surface-1); stroke-width: 2; pointer-events: none; }
+  .hit-rect { fill: transparent; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    font-size: 0.78rem; box-shadow: 0 4px 16px rgba(0,0,0,0.18); white-space: nowrap;
+    transform: translate(-50%, -110%); opacity: 0; transition: opacity 0.08s;
+    z-index: 10;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .t-time { color: var(--text-muted); font-size: 0.72rem; margin-bottom: 4px; }
+  .tooltip .t-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+  .tooltip .t-key { width: 10px; height: 2px; border-radius: 1px; display: inline-block; margin-right: 4px; }
+  .tooltip .t-label { color: var(--text-secondary); margin-right: 10px; }
+  .tooltip .t-value { color: var(--text-primary); font-weight: 600; }
+
+  .bar-hit:hover { filter: brightness(1.15); }
+  .refline { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4,4; }
+</style>
+
+<div id="app">
+  <h1>Dashboard collecte crypto — BTC / SOL</h1>
+  <p class="subtitle" id="generated-at"></p>
+  <p class="note">
+    Instantané figé au moment de l'export (pas de mise à jour en direct — un Artifact publié ne peut pas
+    interroger Supabase, contrainte CSP). Pour rafraîchir : relancer le workflow GitHub Actions
+    "Export dashboard data snapshot", puis republier cette page avec les nouvelles données.
+  </p>
+
+  <div class="card">
+    <h2>Open interest — valeur notionnelle ($)</h2>
+    <p class="desc">oi_usd : BTC et SOL enfin comparables directement (contrairement au nombre brut de contrats).</p>
+    <div id="chart-oi" class="chart-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Funding rate (%)</h2>
+    <p class="desc">Taux de funding perpetual OKX, en pourcentage (décimal × 100).</p>
+    <div id="chart-funding" class="chart-wrap"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ratio long/short (comptes)</h2>
+    <p class="desc">Ratio de comptes en position long vs short sur Binance (via Coinalyze). &gt;1 = plus de comptes long que short (ligne pointillée = équilibre à 1.0, visible seulement si l'échelle du graphique l'inclut).</p>
+    <div id="chart-lsr" class="chart-wrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" id="symbol-tabs">
+      <button class="tab-btn active" data-symbol="BTCUSDT">BTC</button>
+      <button class="tab-btn" data-symbol="SOLUSDT">SOL</button>
+    </div>
+
+    <div class="tab-panel active" data-panel="BTCUSDT">
+      <h2>Prix + VWAP</h2>
+      <p class="desc">Bougies OKX 5m — VWAP ancré sur la journée UTC (reset à 00:00 UTC).</p>
+      <div id="chart-price-BTCUSDT" class="chart-wrap"></div>
+      <h2 style="margin-top:24px;">CVD (Cumulative Volume Delta, approximation)</h2>
+      <p class="desc">Volume signé par couleur de bougie, cumulé depuis 00:00 UTC — proxy directionnel, pas un vrai delta acheteur/vendeur.</p>
+      <div id="chart-cvd-BTCUSDT" class="chart-wrap"></div>
+      <h2 style="margin-top:24px;">Liquidations (volume long vs short)</h2>
+      <p class="desc">Buckets Binance via Coinalyze. Sous-estimé en période de forte volatilité (flux échantillonné).</p>
+      <div id="chart-liq-BTCUSDT" class="chart-wrap"></div>
+    </div>
+
+    <div class="tab-panel" data-panel="SOLUSDT">
+      <h2>Prix + VWAP</h2>
+      <p class="desc">Bougies OKX 5m — VWAP ancré sur la journée UTC (reset à 00:00 UTC).</p>
+      <div id="chart-price-SOLUSDT" class="chart-wrap"></div>
+      <h2 style="margin-top:24px;">CVD (Cumulative Volume Delta, approximation)</h2>
+      <p class="desc">Volume signé par couleur de bougie, cumulé depuis 00:00 UTC — proxy directionnel, pas un vrai delta acheteur/vendeur.</p>
+      <div id="chart-cvd-SOLUSDT" class="chart-wrap"></div>
+      <h2 style="margin-top:24px;">Liquidations (volume long vs short)</h2>
+      <p class="desc">Buckets Binance via Coinalyze. Sous-estimé en période de forte volatilité (flux échantillonné).</p>
+      <div id="chart-liq-SOLUSDT" class="chart-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+
+// ---------- formatters ----------
+function fmtCompactUSD(v) {
+  if (v == null || !isFinite(v)) return '—';
+  const abs = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + '$' + (abs/1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return sign + '$' + (abs/1e3).toFixed(1) + 'K';
+  return sign + '$' + abs.toFixed(2);
+}
+function fmtCompactNum(v) {
+  if (v == null || !isFinite(v)) return '—';
+  const abs = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return sign + (abs/1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return sign + (abs/1e3).toFixed(1) + 'K';
+  return sign + abs.toFixed(2);
+}
+function fmtPrice(v) {
+  if (v == null || !isFinite(v)) return '—';
+  if (Math.abs(v) >= 1000) return v.toLocaleString('en-US', {maximumFractionDigits: 0});
+  return v.toFixed(3);
+}
+function fmtPct(v) { return v == null ? '—' : (v*100).toFixed(4) + '%'; }
+function fmtRatio(v) { return v == null ? '—' : v.toFixed(3); }
+function fmtTime(ms) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2,'0');
+  return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth()+1) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ' UTC';
+}
+// Ticks d'axe X : au-delà de 4 jours la date seule suffit à distinguer les
+// ticks : en-dessous (cas courant ici, collecte récente sur 1-3 jours),
+// la date seule se répèterait sur tous les ticks -- on ajoute l'heure.
+function fmtAxisTick(ms, spanMs) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2,'0');
+  const datePart = pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth()+1);
+  const timePart = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  const fourDaysMs = 4 * 24 * 3600 * 1000;
+  return spanMs >= fourDaysMs ? datePart : datePart + ' ' + timePart;
+}
+
+function niceTicks(min, max, count) {
+  if (min === max) { min -= 1; max += 1; }
+  const span = max - min;
+  const step0 = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const norm = step0 / mag;
+  let step;
+  if (norm < 1.5) step = 1 * mag;
+  else if (norm < 3) step = 2 * mag;
+  else if (norm < 7) step = 5 * mag;
+  else step = 10 * mag;
+  const niceMin = Math.floor(min / step) * step;
+  const niceMax = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let t = niceMin; t <= niceMax + step*0.5; t += step) ticks.push(t);
+  return ticks;
+}
+
+// ---------- generic multi-series time-line chart ----------
+function renderLineChart(containerEl, opts) {
+  const { series, height = 240, yFmt = String, zeroLine = false, legend = true } = opts;
+  const W = 860, H = height;
+  const margin = { top: 14, right: 16, bottom: 28, left: 66 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+
+  const allPoints = series.flatMap(s => s.points);
+  if (allPoints.length === 0) {
+    containerEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Pas de données.</p>';
+    return;
+  }
+  let xMin = Math.min(...allPoints.map(p => p.t));
+  let xMax = Math.max(...allPoints.map(p => p.t));
+  let yMin = Math.min(...allPoints.map(p => p.v));
+  let yMax = Math.max(...allPoints.map(p => p.v));
+  if (zeroLine) { yMin = Math.min(yMin, 0); yMax = Math.max(yMax, 0); }
+  const yPad = (yMax - yMin) * 0.08 || Math.abs(yMax || 1) * 0.08;
+  yMin -= yPad; yMax += yPad;
+
+  const xScale = t => margin.left + (t - xMin) / (xMax - xMin || 1) * plotW;
+  const yScale = v => margin.top + plotH - (v - yMin) / (yMax - yMin || 1) * plotH;
+
+  const yTicks = niceTicks(yMin, yMax, 5);
+  const xTickCount = 6;
+  const xTicks = [];
+  for (let i = 0; i <= xTickCount; i++) xTicks.push(xMin + (xMax - xMin) * i / xTickCount);
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+
+  // gridlines + y labels
+  yTicks.forEach(ty => {
+    if (ty < yMin || ty > yMax) return;
+    const y = yScale(ty);
+    svg += `<line class="gridline" x1="${margin.left}" x2="${W - margin.right}" y1="${y}" y2="${y}"/>`;
+    svg += `<text class="axis-label" x="${margin.left - 8}" y="${y + 3}" text-anchor="end">${yFmt(ty)}</text>`;
+  });
+  if (zeroLine) {
+    const y0 = yScale(0);
+    svg += `<line class="baseline" x1="${margin.left}" x2="${W - margin.right}" y1="${y0}" y2="${y0}"/>`;
+  } else {
+    svg += `<line class="baseline" x1="${margin.left}" x2="${W - margin.right}" y1="${margin.top+plotH}" y2="${margin.top+plotH}"/>`;
+  }
+
+  // x labels
+  const spanMs = xMax - xMin;
+  xTicks.forEach(tx => {
+    const x = xScale(tx);
+    svg += `<text class="axis-label" x="${x}" y="${H - 8}" text-anchor="middle">${fmtAxisTick(tx, spanMs)}</text>`;
+  });
+
+  // optional reference line (e.g. ratio long/short == 1.0)
+  if (opts.refLine != null && opts.refLine.value >= yMin && opts.refLine.value <= yMax) {
+    const yr = yScale(opts.refLine.value);
+    svg += `<line class="refline" x1="${margin.left}" x2="${W-margin.right}" y1="${yr}" y2="${yr}"/>`;
+    if (opts.refLine.label) svg += `<text class="axis-label" x="${W-margin.right-4}" y="${yr-4}" text-anchor="end">${escapeHtml(opts.refLine.label)}</text>`;
+  }
+
+  // series lines
+  series.forEach(s => {
+    const pts = s.points.slice().sort((a,b) => a.t - b.t);
+    const d = pts.map((p,i) => (i===0?'M':'L') + xScale(p.t).toFixed(2) + ',' + yScale(p.v).toFixed(2)).join(' ');
+    svg += `<path class="series-line" d="${d}" stroke="${s.color}"/>`;
+  });
+
+  svg += `<line class="crosshair-line" id="cx-${containerEl.id}" x1="0" x2="0" y1="${margin.top}" y2="${margin.top+plotH}" style="opacity:0"/>`;
+  series.forEach((s, i) => {
+    svg += `<circle class="crosshair-dot" id="cd-${containerEl.id}-${i}" r="4" fill="${s.color}" style="opacity:0"/>`;
+  });
+  svg += `<rect class="hit-rect" id="hit-${containerEl.id}" x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}"/>`;
+  svg += `</svg>`;
+
+  let html = '';
+  if (legend && series.length > 1) {
+    html += '<div class="legend">' + series.map(s =>
+      `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${escapeHtml(s.label)}</span>`
+    ).join('') + '</div>';
+  }
+  html += svg;
+  html += `<div class="tooltip" id="tt-${containerEl.id}"></div>`;
+  containerEl.innerHTML = html;
+
+  // interaction
+  const svgEl = containerEl.querySelector('svg');
+  const hitRect = containerEl.querySelector('#hit-' + CSS.escape(containerEl.id));
+  const crosshair = containerEl.querySelector('#cx-' + CSS.escape(containerEl.id));
+  const tooltip = containerEl.querySelector('#tt-' + CSS.escape(containerEl.id));
+  const dots = series.map((s,i) => containerEl.querySelector('#cd-' + CSS.escape(containerEl.id) + '-' + i));
+  const sortedSeries = series.map(s => s.points.slice().sort((a,b) => a.t - b.t));
+
+  function bisectNearest(pts, t) {
+    let lo = 0, hi = pts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (pts[mid].t < t) lo = mid + 1; else hi = mid;
+    }
+    if (lo > 0 && Math.abs(pts[lo-1].t - t) < Math.abs(pts[lo].t - t)) lo -= 1;
+    return pts[lo];
+  }
+
+  function onMove(evt) {
+    const rect = svgEl.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const px = (evt.clientX - rect.left) * scaleX;
+    const t = xMin + (px - margin.left) / plotW * (xMax - xMin);
+    if (t < xMin || t > xMax) { hideTT(); return; }
+    const x = xScale(t);
+    crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+    crosshair.style.opacity = 1;
+
+    let rows = '';
+    let nearestT = null;
+    series.forEach((s, i) => {
+      const p = bisectNearest(sortedSeries[i], t);
+      if (!p) return;
+      if (nearestT === null) nearestT = p.t;
+      dots[i].setAttribute('cx', xScale(p.t));
+      dots[i].setAttribute('cy', yScale(p.v));
+      dots[i].style.opacity = 1;
+      rows += `<div class="t-row"><span><span class="t-key" style="background:${s.color}"></span><span class="t-label">${escapeHtml(s.label)}</span></span><span class="t-value">${escapeHtml(opts.tooltipFmt ? opts.tooltipFmt(p.v) : yFmt(p.v))}</span></div>`;
+    });
+    tooltip.innerHTML = `<div class="t-time">${fmtTime(nearestT)}</div>` + rows;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = (margin.top) + 'px';
+    tooltip.classList.add('visible');
+  }
+  function hideTT() {
+    crosshair.style.opacity = 0;
+    dots.forEach(d => d.style.opacity = 0);
+    tooltip.classList.remove('visible');
+  }
+  hitRect.addEventListener('pointermove', onMove);
+  hitRect.addEventListener('pointerleave', hideTT);
+}
+
+// ---------- grouped diverging bar chart (liquidations: long above 0, short below 0) ----------
+function renderLiqChart(containerEl, points, colorLong, colorShort) {
+  const W = 860, H = 220;
+  const margin = { top: 14, right: 16, bottom: 28, left: 66 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+
+  if (points.length === 0) {
+    containerEl.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">Pas de données.</p>';
+    return;
+  }
+  const sorted = points.slice().sort((a,b) => a.t - b.t);
+  const xMin = sorted[0].t, xMax = sorted[sorted.length-1].t;
+  const maxAbs = Math.max(1, ...sorted.map(p => Math.max(p.long||0, p.short||0)));
+  const yMax = maxAbs * 1.1;
+
+  const xScale = t => margin.left + (t - xMin) / (xMax - xMin || 1) * plotW;
+  const yPos = v => margin.top + plotH/2 - (v / yMax) * (plotH/2);
+  const yNeg = v => margin.top + plotH/2 + (v / yMax) * (plotH/2);
+
+  const barW = Math.max(1.5, Math.min(10, plotW / sorted.length * 0.7));
+
+  let svg = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`;
+  const yTicks = niceTicks(0, yMax, 3);
+  yTicks.forEach(ty => {
+    svg += `<line class="gridline" x1="${margin.left}" x2="${W-margin.right}" y1="${yPos(ty)}" y2="${yPos(ty)}"/>`;
+    svg += `<line class="gridline" x1="${margin.left}" x2="${W-margin.right}" y1="${yNeg(ty)}" y2="${yNeg(ty)}"/>`;
+    svg += `<text class="axis-label" x="${margin.left-8}" y="${yPos(ty)+3}" text-anchor="end">${fmtCompactNum(ty)}</text>`;
+  });
+  const yZero = margin.top + plotH/2;
+  svg += `<line class="baseline" x1="${margin.left}" x2="${W-margin.right}" y1="${yZero}" y2="${yZero}"/>`;
+
+  const spanMs = xMax - xMin;
+  const xTicks = []; for (let i=0;i<=6;i++) xTicks.push(xMin + (xMax-xMin)*i/6);
+  xTicks.forEach(tx => svg += `<text class="axis-label" x="${xScale(tx)}" y="${H-8}" text-anchor="middle">${fmtAxisTick(tx, spanMs)}</text>`);
+
+  sorted.forEach(p => {
+    const x = xScale(p.t) - barW/2;
+    if (p.long) svg += `<rect class="bar-hit" x="${x}" y="${yPos(p.long)}" width="${barW}" height="${yZero - yPos(p.long)}" rx="2" fill="${colorLong}"><title>${fmtTime(p.t)} — long: ${fmtCompactNum(p.long)}</title></rect>`;
+    if (p.short) svg += `<rect class="bar-hit" x="${x}" y="${yZero}" width="${barW}" height="${yNeg(p.short) - yZero}" rx="2" fill="${colorShort}"><title>${fmtTime(p.t)} — short: ${fmtCompactNum(p.short)}</title></rect>`;
+  });
+  svg += `</svg>`;
+
+  containerEl.innerHTML =
+    `<div class="legend">
+      <span class="legend-item"><span class="legend-swatch" style="background:${colorLong}"></span>Long (au-dessus)</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:${colorShort}"></span>Short (en-dessous)</span>
+    </div>` + svg;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+// ---------- build datasets ----------
+function css(varName) { return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+
+function toPoints(rows, xKey, yKey) {
+  return rows.filter(r => r[yKey] != null).map(r => ({ t: new Date(r[xKey]).getTime(), v: +r[yKey] }));
+}
+
+function buildDashboard() {
+  const COLOR_BTC = css('--series-blue');
+  const COLOR_SOL = css('--series-orange');
+  const COLOR_VWAP = css('--series-aqua');
+  const COLOR_CVD = css('--series-violet');
+  const COLOR_LONG = css('--series-blue');
+  const COLOR_SHORT = css('--series-red');
+
+  document.getElementById('generated-at').textContent = 'Snapshot généré le ' + fmtTime(new Date(DATA.generated_at).getTime());
+
+  renderLineChart(document.getElementById('chart-oi'), {
+    series: [
+      { label: 'BTC', color: COLOR_BTC, points: toPoints(DATA.BTCUSDT.funding_oi, 'timestamp', 'oi_usd') },
+      { label: 'SOL', color: COLOR_SOL, points: toPoints(DATA.SOLUSDT.funding_oi, 'timestamp', 'oi_usd') },
+    ],
+    yFmt: fmtCompactUSD, tooltipFmt: fmtCompactUSD,
+  });
+
+  renderLineChart(document.getElementById('chart-funding'), {
+    series: [
+      { label: 'BTC', color: COLOR_BTC, points: toPoints(DATA.BTCUSDT.funding_oi, 'timestamp', 'funding_rate').map(p => ({t:p.t, v:p.v*100})) },
+      { label: 'SOL', color: COLOR_SOL, points: toPoints(DATA.SOLUSDT.funding_oi, 'timestamp', 'funding_rate').map(p => ({t:p.t, v:p.v*100})) },
+    ],
+    zeroLine: true,
+    yFmt: v => v.toFixed(4) + '%', tooltipFmt: v => v.toFixed(4) + '%',
+  });
+
+  renderLineChart(document.getElementById('chart-lsr'), {
+    series: [
+      { label: 'BTC', color: COLOR_BTC, points: toPoints(DATA.BTCUSDT.long_short_ratio, 'timestamp', 'ratio') },
+      { label: 'SOL', color: COLOR_SOL, points: toPoints(DATA.SOLUSDT.long_short_ratio, 'timestamp', 'ratio') },
+    ],
+    refLine: { value: 1.0, label: 'équilibre (1.0)' },
+    yFmt: fmtRatio, tooltipFmt: fmtRatio,
+  });
+
+  ['BTCUSDT', 'SOLUSDT'].forEach(symbol => {
+    const ohlcv = DATA[symbol].ohlcv;
+    renderLineChart(document.getElementById('chart-price-' + symbol), {
+      series: [
+        { label: 'Close', color: COLOR_BTC, points: toPoints(ohlcv, 'timestamp', 'close') },
+        { label: 'VWAP', color: COLOR_VWAP, points: toPoints(ohlcv, 'timestamp', 'vwap') },
+      ],
+      height: 260,
+      yFmt: fmtPrice, tooltipFmt: fmtPrice,
+    });
+
+    renderLineChart(document.getElementById('chart-cvd-' + symbol), {
+      series: [ { label: 'CVD', color: COLOR_CVD, points: toPoints(ohlcv, 'timestamp', 'cvd') } ],
+      height: 180, zeroLine: true, legend: false,
+      yFmt: fmtCompactNum, tooltipFmt: fmtCompactNum,
+    });
+
+    const liq = DATA[symbol].liquidations.map(r => ({
+      t: new Date(r.timestamp).getTime(), long: +r.longvolume || 0, short: +r.shortvolume || 0,
+    }));
+    renderLiqChart(document.getElementById('chart-liq-' + symbol), liq, COLOR_LONG, COLOR_SHORT);
+  });
+}
+
+// tabs
+document.getElementById('symbol-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const symbol = btn.dataset.symbol;
+  document.querySelectorAll('#symbol-tabs .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === symbol));
+});
+
+buildDashboard();
+</script>
