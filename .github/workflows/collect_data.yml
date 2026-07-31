@@ -1,4 +1,4 @@
-name: Collect funding rate, open interest, liquidations, long/short ratio & OHLCV indicators
+name: Collect funding rate, open interest, liquidations, long/short ratio, OHLCV indicators & whale trades
 
 on:
   schedule:
@@ -49,3 +49,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python data_collection/collect_ohlcv_indicators.py
+
+      - name: Lancer la collecte whale trades
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python data_collection/collect_whale_trades.py
