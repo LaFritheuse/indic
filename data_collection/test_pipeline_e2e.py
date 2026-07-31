@@ -46,15 +46,18 @@ def fetch_funding_oi(symbol: str) -> pd.DataFrame:
     resp = requests.get(url, headers=headers, params=params, timeout=30)
     resp.raise_for_status()
     df = pd.DataFrame(resp.json())
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    # .as_unit("ns") : pandas >=3.0 exige que les deux côtés d'un merge_asof
+    # aient exactement la même résolution datetime64 (ns ici, vs le ms des
+    # bougies OHLCV) -- sinon MergeError.
+    df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.as_unit("ns")
     return df
 
 
-def fetch_ohlcv(exchange, ccxt_symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+def fetch_ohlcv(exchange, ccxt_symbol: str, start: datetime, end: datetime, timeframe: str = "5m") -> pd.DataFrame:
     since_ms = int(start.timestamp() * 1000) - 3600_000  # marge d'1h avant
     all_candles = []
     while True:
-        candles = exchange.fetch_ohlcv(ccxt_symbol, timeframe="15m", since=since_ms, limit=300)
+        candles = exchange.fetch_ohlcv(ccxt_symbol, timeframe=timeframe, since=since_ms, limit=300)
         if not candles:
             break
         all_candles.extend(candles)
@@ -64,7 +67,7 @@ def fetch_ohlcv(exchange, ccxt_symbol: str, start: datetime, end: datetime) -> p
         since_ms = last_ts + 1
 
     df = pd.DataFrame(all_candles, columns=["ts_ms", "open", "high", "low", "close", "volume"])
-    df["timestamp"] = pd.to_datetime(df["ts_ms"], unit="ms", utc=True)
+    df["timestamp"] = pd.to_datetime(df["ts_ms"], unit="ms", utc=True).dt.as_unit("ns")
     return df[["timestamp", "open", "high", "low", "close", "volume"]]
 
 
@@ -75,8 +78,12 @@ def analyze_symbol(label: str, ccxt_symbol: str, exchange):
         return
 
     start, end = fo["timestamp"].min(), fo["timestamp"].max()
-    ohlcv = fetch_ohlcv(exchange, ccxt_symbol, start.to_pydatetime(), end.to_pydatetime())
-    print(f"{label}: {len(fo)} points funding/OI, {len(ohlcv)} bougies OHLCV 15m OKX ({start} -> {end})")
+    ohlcv = fetch_ohlcv(exchange, ccxt_symbol, start.to_pydatetime(), end.to_pydatetime(), timeframe="5m")
+    print(f"{label}: {len(fo)} points funding/OI, {len(ohlcv)} bougies OHLCV 5m OKX ({start} -> {end})")
+
+    ohlcv_path = f"ohlcv_{label}_5m.parquet"
+    ohlcv.to_parquet(ohlcv_path)
+    print(f"OHLCV sauvegardées : {ohlcv_path}")
 
     # Jointure sur le timestamp le plus proche
     fo_sorted = fo.sort_values("timestamp")
@@ -97,7 +104,7 @@ def analyze_symbol(label: str, ccxt_symbol: str, exchange):
     fig, (ax_price, ax_funding) = plt.subplots(2, 1, figsize=(10, 6), sharex=True, height_ratios=[2, 1])
     ax_price.plot(ohlcv_sorted["timestamp"], ohlcv_sorted["close"], color="steelblue", linewidth=1)
     ax_price.set_ylabel("Prix (close)")
-    ax_price.set_title(f"{label} — prix OKX 15m + funding_rate (test mécanique pipeline, {len(fo)} points sur {(end-start)})")
+    ax_price.set_title(f"{label} — prix OKX 5m + funding_rate (test mécanique pipeline, {len(fo)} points sur {(end-start)})")
 
     ax_funding.plot(joined["timestamp"], joined["funding_rate"], color="darkorange", marker="o", markersize=4, linewidth=1)
     ax_funding.axhline(0, color="grey", linewidth=0.5)

@@ -11,14 +11,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install ccxt requests pandas matplotlib
+      - run: pip install ccxt requests pandas matplotlib pyarrow
       - name: Test E2E (OHLCV + jointure + graphiques + stats)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python data_collection/test_pipeline_e2e.py
-      - name: Upload graphiques
+      - name: Upload graphiques + OHLCV
         uses: actions/upload-artifact@v4
         with:
-          name: pipeline-test-charts
-          path: pipeline_test_*.png
+          name: pipeline-test-outputs
+          path: |
+            pipeline_test_*.png
+            ohlcv_*.parquet
