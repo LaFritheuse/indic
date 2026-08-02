@@ -18,16 +18,29 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 SYMBOLS = ["BTCUSDT", "SOLUSDT"]
-ROW_LIMIT = 20000
+PAGE_SIZE = 1000  # PostgREST plafonne les réponses à 1000 lignes par défaut,
+                  # peu importe le "limit" demandé -- il faut paginer via
+                  # l'en-tête Range pour récupérer la totalité d'une table.
 
 
 def fetch_all(table: str, select: str) -> pd.DataFrame:
     url = f"{SUPABASE_URL.rstrip('/')}/rest/v1/{table}"
-    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-    params = {"select": select, "order": "timestamp.asc", "limit": str(ROW_LIMIT)}
-    resp = requests.get(url, headers=headers, params=params, timeout=30)
-    resp.raise_for_status()
-    df = pd.DataFrame(resp.json())
+    headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Range-Unit": "items"}
+    params = {"select": select, "order": "timestamp.asc"}
+
+    all_rows = []
+    offset = 0
+    while True:
+        page_headers = dict(headers, Range=f"{offset}-{offset+PAGE_SIZE-1}")
+        resp = requests.get(url, headers=page_headers, params=params, timeout=30)
+        resp.raise_for_status()
+        batch = resp.json()
+        all_rows.extend(batch)
+        if len(batch) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+
+    df = pd.DataFrame(all_rows)
     return df
 
 
