@@ -5,9 +5,8 @@ Supabase (table ohlcv_indicators, voir
 supabase/migrations/20260731211000_ohlcv_indicators.sql).
 
 Pas de nouvelle source externe : ce script recalcule tout depuis les
-bougies déjà récupérables via ccxt (même appel que
-test_pipeline_e2e.py / validate_and_analyze.py) -- aucune dépendance à
-une donnée tick-by-tick.
+bougies déjà récupérables via ccxt -- aucune dépendance à une donnée
+tick-by-tick.
 
 VWAP et CVD sont tous les deux ancrés sur la journée calendaire UTC
 (reset à 00:00 UTC), convention standard pour un usage intraday (c'est
