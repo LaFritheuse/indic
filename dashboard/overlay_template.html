@@ -1,0 +1,357 @@
+<title>Vue superposée — BTC/SOL</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --s-blue:    #3987e5;
+    --s-orange:  #d95926;
+    --s-aqua:    #199e70;
+    --s-yellow:  #c98500;
+    --s-magenta: #d55181;
+    --s-green:   #008300;
+    --s-violet:  #9085e9;
+    --s-red:     #e66767;
+    --bull: #0ca30c;
+    --bear: #d03b3b;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --s-blue:    #2a78d6;
+    --s-orange:  #eb6834;
+    --s-aqua:    #1baf7a;
+    --s-yellow:  #eda100;
+    --s-magenta: #e87ba4;
+    --s-green:   #008300;
+    --s-violet:  #4a3aa7;
+    --s-red:     #e34948;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --surface-1:      #fcfcfb;
+      --page-plane:     #f9f9f7;
+      --text-primary:   #0b0b0b;
+      --text-secondary: #52514e;
+      --text-muted:     #898781;
+      --gridline:       #e1e0d9;
+      --baseline:       #c3c2b7;
+      --border:         rgba(11,11,11,0.10);
+      --s-blue:    #2a78d6;
+      --s-orange:  #eb6834;
+      --s-aqua:    #1baf7a;
+      --s-yellow:  #eda100;
+      --s-magenta: #e87ba4;
+      --s-green:   #008300;
+      --s-violet:  #4a3aa7;
+      --s-red:     #e34948;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  #app {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane); color: var(--text-primary);
+    padding: 20px 16px 64px; max-width: 1080px; margin: 0 auto;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 4px; }
+  .note {
+    color: var(--text-muted); font-size: 0.78rem; margin: 0 0 16px;
+    padding: 9px 13px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .note b { color: var(--text-secondary); }
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .tab-btn {
+    font-family: inherit; font-size: 0.85rem; padding: 7px 16px; border-radius: 999px;
+    border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer;
+  }
+  .tab-btn.active { background: var(--s-blue); color: #fff; border-color: var(--s-blue); }
+  .symbol-group { display: none; }
+  .symbol-group.active { display: block; }
+
+  .readout {
+    display: flex; flex-wrap: wrap; gap: 3px 16px; background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 10px 10px 0 0; padding: 10px 14px;
+    font-size: 0.76rem; font-variant-numeric: tabular-nums;
+  }
+  .readout .ro-item { display: flex; gap: 5px; align-items: baseline; white-space: nowrap; }
+  .readout .ro-label { display: flex; align-items: center; gap: 4px; color: var(--text-muted); }
+  .readout .ro-sw { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .readout .ro-value { color: var(--text-primary); font-weight: 600; }
+  .readout .ro-time { color: var(--text-secondary); font-weight: 600; margin-right: 4px; }
+
+  .chart-card { border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; background: var(--surface-1); position: relative; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 14px 4px; font-size: 0.75rem; color: var(--text-secondary);
+  }
+  .legend .lg-item { display: flex; align-items: center; gap: 5px; }
+  .legend .lg-line { width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+  svg.chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .axis-label { fill: var(--text-muted); font-size: 9px; }
+  .crosshair-v { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2,3; pointer-events: none; opacity: 0; }
+  .hit-rect { fill: transparent; }
+  footer.credit { margin-top: 18px; color: var(--text-muted); font-size: 0.72rem; }
+</style>
+
+<div id="app">
+  <h1>Vue superposée — BTC / SOL</h1>
+  <p class="subtitle" id="generated-at"></p>
+  <p class="note">
+    Toutes les séries sont <b>normalisées min-max sur leur propre plage</b> (0-100% de leur propre variation,
+    comme un oscillateur classique) pour partager un seul axe visuel — les <b>valeurs réelles</b> restent dans
+    le bandeau au survol. Les séries éparses (funding rate, OI, liquidations) sont tracées en <b>escalier</b>
+    (dernière valeur connue maintenue) avec un point à chaque mesure réelle : ne pas confondre les segments
+    plats avec une interpolation — c'est la donnée réelle, positionnée à son vrai timestamp.
+  </p>
+
+  <div class="tabs" id="symbol-tabs">
+    <button class="tab-btn active" data-symbol="BTCUSDT">BTC</button>
+    <button class="tab-btn" data-symbol="SOLUSDT">SOL</button>
+  </div>
+
+  <div class="symbol-group active" data-group="BTCUSDT">
+    <div class="readout" id="readout-BTCUSDT"></div>
+    <div class="chart-card"><div class="legend" id="legend-BTCUSDT"></div><div id="chart-BTCUSDT"></div></div>
+  </div>
+  <div class="symbol-group" data-group="SOLUSDT">
+    <div class="readout" id="readout-SOLUSDT"></div>
+    <div class="chart-card"><div class="legend" id="legend-SOLUSDT"></div><div id="chart-SOLUSDT"></div></div>
+  </div>
+
+  <footer class="credit">
+    Close + VWAP + CVD (OKX 5m) · funding rate · open interest ($) · ratio long/short (Coinalyze) ·
+    liquidations long/short (Coinalyze) · whale trades (&gt;100k$, OKX) — toutes en échelle normalisée superposée.
+  </footer>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+const W = 940, H = 520;
+const MARGIN = { top: 16, right: 16, bottom: 26, left: 16 };
+const PLOT_W = W - MARGIN.left - MARGIN.right;
+const PLOT_H = H - MARGIN.top - MARGIN.bottom;
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
+
+function fmtCompactUSD(v) {
+  if (v == null || !isFinite(v)) return '—';
+  const abs = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + '$' + (abs/1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return sign + '$' + (abs/1e3).toFixed(1) + 'K';
+  return sign + '$' + abs.toFixed(2);
+}
+function fmtCompactNum(v) {
+  if (v == null || !isFinite(v)) return '—';
+  const abs = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (abs >= 1e9) return sign + (abs/1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return sign + (abs/1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return sign + (abs/1e3).toFixed(2) + 'K';
+  return sign + abs.toFixed(2);
+}
+function fmtPrice(v) {
+  if (v == null || !isFinite(v)) return '—';
+  if (Math.abs(v) >= 1000) return v.toLocaleString('en-US', {maximumFractionDigits: 1});
+  return v.toFixed(3);
+}
+function fmtPct(v) { return v == null ? '—' : (v*100).toFixed(4) + '%'; }
+function fmtRatio(v) { return v == null ? '—' : v.toFixed(3); }
+function fmtDate(ms) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2,'0');
+  return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth()+1) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ' UTC';
+}
+function fmtAxisTick(ms, spanMs) {
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2,'0');
+  const datePart = pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth()+1);
+  const timePart = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  return spanMs >= 4*24*3600*1000 ? datePart : datePart + ' ' + timePart;
+}
+function bisectNearest(sortedPts, key, t) {
+  if (!sortedPts.length) return null;
+  let lo = 0, hi = sortedPts.length - 1;
+  while (lo < hi) { const mid = (lo+hi)>>1; if (key(sortedPts[mid]) < t) lo = mid+1; else hi = mid; }
+  if (lo > 0 && Math.abs(key(sortedPts[lo-1]) - t) < Math.abs(key(sortedPts[lo]) - t)) lo -= 1;
+  return sortedPts[lo];
+}
+// Dernière mesure réelle connue à l'instant t (pas la plus proche) --
+// utilisé pour le bandeau de lecture des séries en escalier : au survol
+// entre deux points, on doit lire la valeur "tenue", pas une valeur future.
+function lastKnownAt(sortedPts, key, t) {
+  if (!sortedPts.length) return null;
+  let lo = 0, hi = sortedPts.length;
+  while (lo < hi) { const mid = (lo+hi)>>1; if (key(sortedPts[mid]) <= t) lo = mid+1; else hi = mid; }
+  return lo > 0 ? sortedPts[lo-1] : null;
+}
+function timeScale(xMin, xMax) { return t => MARGIN.left + (t - xMin) / (xMax - xMin || 1) * PLOT_W; }
+
+const DASH = { solid: 'none', dashed: '7,4', dotted: '1.5,3', dashdot: '7,3,1.5,3' };
+
+function normalize(points) {
+  if (!points.length) return { norm: [], min: 0, max: 1 };
+  const vals = points.map(p => p.v);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (min === max) { min -= Math.abs(min || 1) * 0.05; max += Math.abs(max || 1) * 0.05; }
+  const norm = points.map(p => ({ t: p.t, v: (p.v - min) / (max - min) }));
+  return { norm, min, max };
+}
+
+function drawXAxis(parts, xMin, xMax) {
+  const xS = timeScale(xMin, xMax);
+  const span = xMax - xMin;
+  for (let i = 0; i <= 7; i++) {
+    const tx = xMin + span*i/7;
+    parts.push(`<line class="gridline" x1="${xS(tx)}" x2="${xS(tx)}" y1="${MARGIN.top}" y2="${MARGIN.top+PLOT_H}"/>`);
+    parts.push(`<text class="axis-label" x="${xS(tx)}" y="${H-8}" text-anchor="middle">${fmtAxisTick(tx, span)}</text>`);
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = MARGIN.top + PLOT_H*i/4;
+    parts.push(`<line class="gridline" x1="${MARGIN.left}" x2="${W-MARGIN.right}" y1="${y}" y2="${y}"/>`);
+  }
+  parts.push(`<text class="axis-label" x="${MARGIN.left+4}" y="${MARGIN.top+10}">100%</text>`);
+  parts.push(`<text class="axis-label" x="${MARGIN.left+4}" y="${MARGIN.top+PLOT_H-3}">0%</text>`);
+}
+
+function lineD(pts, xS) {
+  return pts.map((p,i) => (i===0?'M':'L') + xS(p.t).toFixed(2) + ',' + (MARGIN.top + PLOT_H*(1-p.v)).toFixed(2)).join(' ');
+}
+function stepD(pts, xS, xMaxPx) {
+  if (!pts.length) return '';
+  let d = `M ${xS(pts[0].t).toFixed(2)},${(MARGIN.top+PLOT_H*(1-pts[0].v)).toFixed(2)}`;
+  for (let i=1;i<pts.length;i++) {
+    const yPrev = MARGIN.top + PLOT_H*(1-pts[i-1].v);
+    const xCur = xS(pts[i].t);
+    const yCur = MARGIN.top + PLOT_H*(1-pts[i].v);
+    d += ` L ${xCur.toFixed(2)},${yPrev.toFixed(2)} L ${xCur.toFixed(2)},${yCur.toFixed(2)}`;
+  }
+  // tenir la derniere valeur jusqu'au bord droit du graphique
+  const yLast = MARGIN.top + PLOT_H*(1-pts[pts.length-1].v);
+  d += ` L ${xMaxPx.toFixed(2)},${yLast.toFixed(2)}`;
+  return d;
+}
+
+function buildSymbolGroup(symbol) {
+  const d = DATA[symbol];
+  const ohlcv = d.ohlcv.map(r => ({ t: new Date(r.timestamp).getTime(), close:+r.close, vwap: r.vwap!=null?+r.vwap:null, cvd: r.cvd!=null?+r.cvd:null }));
+  if (!ohlcv.length) return;
+  const xMin = ohlcv[0].t, xMax = ohlcv[ohlcv.length-1].t;
+  const xS = timeScale(xMin, xMax);
+
+  const closePts = ohlcv.map(c => ({ t: c.t, v: c.close }));
+  const vwapPts = ohlcv.filter(c => c.vwap != null).map(c => ({ t: c.t, v: c.vwap }));
+  const cvdPts = ohlcv.filter(c => c.cvd != null).map(c => ({ t: c.t, v: c.cvd }));
+  const fundingPts = d.funding_oi.filter(r => r.funding_rate != null).map(r => ({ t: new Date(r.timestamp).getTime(), v: +r.funding_rate*100 })).sort((a,b)=>a.t-b.t);
+  const oiPts = d.funding_oi.filter(r => r.oi_usd != null).map(r => ({ t: new Date(r.timestamp).getTime(), v: +r.oi_usd })).sort((a,b)=>a.t-b.t);
+  const lsrPts = d.long_short_ratio.filter(r => r.ratio != null).map(r => ({ t: new Date(r.timestamp).getTime(), v: +r.ratio })).sort((a,b)=>a.t-b.t);
+  const liqLongPts = d.liquidations.map(r => ({ t: new Date(r.timestamp).getTime(), v: +r.longvolume||0 })).sort((a,b)=>a.t-b.t);
+  const liqShortPts = d.liquidations.map(r => ({ t: new Date(r.timestamp).getTime(), v: +r.shortvolume||0 })).sort((a,b)=>a.t-b.t);
+  const whaleTrades = (d.whale_trades || []).map(r => ({ t: new Date(r.timestamp).getTime(), side: r.side, price: +r.price, notional: +r.notional_usd }));
+
+  const series = [
+    { key:'close',  label:'Close',            color: css('--s-blue'),    dash:'solid',   mode:'line', raw: closePts,   fmt: fmtPrice },
+    { key:'vwap',   label:'VWAP',             color: css('--s-orange'),  dash:'dashed',  mode:'line', raw: vwapPts,    fmt: fmtPrice },
+    { key:'funding',label:'Funding rate',     color: css('--s-aqua'),    dash:'dotted',  mode:'step', raw: fundingPts, fmt: v=>v.toFixed(4)+'%' },
+    { key:'oi',     label:'Open interest ($)',color: css('--s-yellow'),  dash:'dashdot', mode:'step', raw: oiPts,      fmt: fmtCompactUSD },
+    { key:'lsr',    label:'Ratio long/short', color: css('--s-magenta'), dash:'solid',   mode:'step', raw: lsrPts,     fmt: fmtRatio },
+    { key:'cvd',    label:'CVD',              color: css('--s-green'),  dash:'dashed',  mode:'line', raw: cvdPts,     fmt: fmtCompactNum },
+    { key:'liqL',   label:'Liquidations long',color: css('--s-violet'), dash:'dotted',  mode:'step', raw: liqLongPts, fmt: fmtCompactNum },
+    { key:'liqS',   label:'Liquidations short',color: css('--s-red'),   dash:'dashdot', mode:'step', raw: liqShortPts,fmt: fmtCompactNum },
+  ];
+
+  const parts = [];
+  drawXAxis(parts, xMin, xMax);
+
+  series.forEach(s => {
+    const { norm, min, max } = normalize(s.raw);
+    s._norm = norm; s._min = min; s._max = max;
+    if (!norm.length) return;
+    const d2 = s.mode === 'step' ? stepD(norm, xS, W - MARGIN.right) : lineD(norm, xS);
+    parts.push(`<path d="${d2}" fill="none" stroke="${s.color}" stroke-width="1.7" stroke-dasharray="${DASH[s.dash]}" stroke-linejoin="round" stroke-linecap="round"/>`);
+    if (s.mode === 'step') {
+      norm.forEach(p => parts.push(`<circle cx="${xS(p.t).toFixed(2)}" cy="${(MARGIN.top+PLOT_H*(1-p.v)).toFixed(2)}" r="2.6" fill="${s.color}"/>`));
+    }
+  });
+
+  // whale trade markers, positionnés sur l'échelle normalisée du prix
+  const priceNorm = normalize(closePts);
+  const priceMin = priceNorm.min, priceMax = priceNorm.max;
+  const bull = css('--bull'), bear = css('--bear');
+  whaleTrades.forEach(wt => {
+    const normV = (wt.price - priceMin) / (priceMax - priceMin || 1);
+    const x = xS(wt.t), y = MARGIN.top + PLOT_H*(1-normV);
+    const isBuy = wt.side === 'buy';
+    const color = isBuy ? bull : bear;
+    const size = 5;
+    const pts = isBuy ? `${x-size},${y+size} ${x+size},${y+size} ${x},${y-size}` : `${x-size},${y-size} ${x+size},${y-size} ${x},${y+size}`;
+    parts.push(`<polygon points="${pts}" fill="${color}" fill-opacity="0.9" stroke="${css('--surface-1')}" stroke-width="1"><title>${escapeHtml(fmtDate(wt.t))} — ${isBuy?'ACHAT':'VENTE'} ${escapeHtml(fmtCompactUSD(wt.notional))} @ ${escapeHtml(fmtPrice(wt.price))}</title></polygon>`);
+  });
+
+  parts.push(`<line class="crosshair-v" id="cx-${symbol}" x1="0" x2="0" y1="${MARGIN.top}" y2="${MARGIN.top+PLOT_H}"/>`);
+  parts.push(`<rect class="hit-rect" id="hit-${symbol}" x="${MARGIN.left}" y="${MARGIN.top}" width="${PLOT_W}" height="${PLOT_H}"/>`);
+
+  const chartEl = document.getElementById('chart-' + symbol);
+  chartEl.innerHTML = `<svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${parts.join('')}</svg>`;
+
+  const legendEl = document.getElementById('legend-' + symbol);
+  legendEl.innerHTML = series.map(s =>
+    `<span class="lg-item"><span class="lg-line" style="border-color:${s.color};border-style:${s.dash==='solid'?'solid':(s.dash==='dotted'?'dotted':'dashed')}"></span>${escapeHtml(s.label)}</span>`
+  ).join('') + `<span class="lg-item"><span style="color:${bull}">▲</span><span style="color:${bear}">▼</span>Whale trade (&gt;100k$)</span>`;
+
+  const readoutEl = document.getElementById('readout-' + symbol);
+  function renderReadout(t) {
+    let html = `<span class="ro-item ro-time">${escapeHtml(fmtDate(t))}</span>`;
+    series.forEach(s => {
+      const sorted = s.raw;
+      const p = s.mode === 'step' ? lastKnownAt(sorted, pt=>pt.t, t) : bisectNearest(sorted, pt=>pt.t, t);
+      html += `<span class="ro-item"><span class="ro-label"><span class="ro-sw" style="background:${s.color}"></span>${escapeHtml(s.label)}</span><span class="ro-value">${p ? escapeHtml(s.fmt(p.v)) : '—'}</span></span>`;
+    });
+    readoutEl.innerHTML = html;
+  }
+
+  const hitRect = document.getElementById('hit-' + symbol);
+  const crosshair = document.getElementById('cx-' + symbol);
+  function onMove(evt) {
+    const rect = chartEl.querySelector('svg').getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const px = (evt.clientX - rect.left) * scaleX;
+    if (px < MARGIN.left || px > W - MARGIN.right) { crosshair.style.opacity = 0; return; }
+    const t = xMin + (px - MARGIN.left) / PLOT_W * (xMax - xMin);
+    crosshair.setAttribute('x1', xS(t)); crosshair.setAttribute('x2', xS(t)); crosshair.style.opacity = 1;
+    renderReadout(t);
+  }
+  hitRect.addEventListener('pointermove', onMove);
+  hitRect.addEventListener('pointerleave', () => { crosshair.style.opacity = 0; renderReadout(xMax); });
+  renderReadout(xMax);
+}
+
+document.getElementById('generated-at').textContent = 'Snapshot généré le ' + fmtDate(new Date(DATA.generated_at).getTime());
+buildSymbolGroup('BTCUSDT');
+buildSymbolGroup('SOLUSDT');
+
+document.getElementById('symbol-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const symbol = btn.dataset.symbol;
+  document.querySelectorAll('#symbol-tabs .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('.symbol-group').forEach(g => g.classList.toggle('active', g.dataset.group === symbol));
+});
+</script>
