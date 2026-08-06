@@ -1,12 +1,15 @@
 name: Collect funding rate, open interest, liquidations, long/short ratio, OHLCV indicators & whale trades
 
 on:
-  schedule:
-    # Toutes les 15 minutes. GitHub Actions n'exécute pas les crons de
-    # façon parfaitement ponctuelle (délai possible en cas de forte
-    # charge sur les runners partagés) -- c'est une limite de la
-    # plateforme, pas du script.
-    - cron: "*/15 * * * *"
+  # Collecte automatique désactivée (cron retiré) -- déclenchement manuel
+  # uniquement pour l'instant. Pour réactiver la collecte automatique
+  # toutes les 15 min, redécommenter le bloc "schedule" ci-dessous.
+  # schedule:
+  #   # GitHub Actions n'exécute pas les crons de façon parfaitement
+  #   # ponctuelle (délai possible en cas de forte charge sur les
+  #   # runners partagés) -- c'est une limite de la plateforme, pas du
+  #   # script.
+  #   - cron: "*/15 * * * *"
   workflow_dispatch: {}  # permet de lancer le workflow manuellement depuis l'onglet Actions
 
 jobs:
