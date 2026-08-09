@@ -9,6 +9,18 @@
 
 $ErrorActionPreference = "Stop"
 
+# Register-ScheduledTask echoue avec un "Acces refuse" (HRESULT
+# 0x80070005) si ce PowerShell n'est pas ouvert en tant
+# qu'administrateur -- verifie et arrete tout de suite avec un message
+# clair plutot que d'echouer au bout du script.
+$IsAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $IsAdmin) {
+    Write-Host "ERREUR : ce script doit etre lance depuis un PowerShell ouvert EN TANT QU'ADMINISTRATEUR."
+    Write-Host "  -> Fermer cette fenetre, clic droit sur PowerShell > 'Executer en tant qu'administrateur',"
+    Write-Host "     puis relancer la commande depuis ce nouveau terminal (se replacer dans le dossier du repo)."
+    exit 1
+}
+
 $RepoDir = (Resolve-Path "$PSScriptRoot\..\..").Path
 Set-Location $RepoDir
 
