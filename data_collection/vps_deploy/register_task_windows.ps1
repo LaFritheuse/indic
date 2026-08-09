@@ -33,9 +33,14 @@ $RunScript = Join-Path $PSScriptRoot "run_collection.ps1"
 $Action = New-ScheduledTaskAction -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$RunScript`"" `
     -WorkingDirectory $RepoDir
+# [TimeSpan]::MaxValue casse la conversion XML du Planificateur de
+# taches ("valeur incorrectement formatee ou hors limites") -- le
+# format de duree accepte a une limite bien plus basse. 10 ans est une
+# duree finie largement suffisante pour un "tourne indefiniment" en
+# pratique.
 $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
     -RepetitionInterval (New-TimeSpan -Minutes 15) `
-    -RepetitionDuration ([TimeSpan]::MaxValue)
+    -RepetitionDuration (New-TimeSpan -Days 3650)
 $Settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
     -DontStopOnIdleEnd `
