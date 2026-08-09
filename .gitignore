@@ -2,5 +2,10 @@ __pycache__/
 *.pyc
 .pytest_cache/
 data_collection/vps_deploy/venv/
-data_collection/vps_deploy/.env
+
+# Fichiers .env réels (secrets) -- jamais commités, peu importe le
+# dossier (un pattern sans "/" matche à n'importe quel niveau). Seuls
+# les .env.example (sans vraies valeurs) sont versionnés.
+.env
+
 data_collection/vps_deploy/collect.log

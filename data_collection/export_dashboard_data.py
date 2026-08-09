@@ -17,6 +17,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / "vps_deploy" / ".env")
+except ImportError:
+    pass
 import requests
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
